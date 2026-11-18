@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Wortsalat</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Wortsalat">
+<meta name="theme-color" content="#ffffff">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<style>
+:root {
+  --bg: #ffffff; --card: #f3f2f0; --tile: #f1f0ee; --line: #e3e1dd;
+  --text: #1c1c1c; --muted: #8a8a8a; --accent: #2e9d5b; --accent-2: #3daa6a; --accent-ink: #ffffff;
+  --found-ink: #f4e88e; --danger: #c8302c;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121212; --card: #1f1f1f; --tile: #262626; --line: #333333;
+    --text: #f2f2f2; --muted: #9a9a9a;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121212; --card: #1f1f1f; --tile: #262626; --line: #333333;
+  --text: #f2f2f2; --muted: #9a9a9a;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: "Montserrat", system-ui, -apple-system, sans-serif;
+  -webkit-user-select: none; user-select: none; touch-action: manipulation;
+  padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+  overflow-x: hidden;
+}
+.screen { display: none; max-width: 480px; margin: 0 auto; min-height: 100%; flex-direction: column; padding-bottom: 24px; }
+.screen.active { display: flex; }
+.bar { display: flex; align-items: center; gap: 8px; height: 56px; }
+.bar h2 { flex: 1; margin: 0; font-size: 18px; font-weight: 600; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.icon-btn { width: 40px; height: 40px; border: 0; border-radius: 50%; background: var(--card); color: var(--text); font-size: 18px; cursor: pointer; }
+.icon-btn:disabled { opacity: .4; }
+button { font: inherit; }
+.btn { border: 0; border-radius: 999px; padding: 14px 18px; font-size: 16px; font-weight: 700; background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+.btn.light { background: var(--card); color: var(--text); }
+.btn:active, .icon-btn:active, .mode:active { opacity: .8; }
+
+/* Menü */
+.logo { margin: 32px 4px 24px; }
+.logo h1 { margin: 0; font-size: 36px; font-weight: 800; color: var(--accent); }
+.logo p { margin: 4px 0 0; color: var(--muted); font-weight: 500; }
+.mode { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: 0; border-radius: 16px; padding: 14px 16px; margin-bottom: 10px; background: var(--card); color: var(--text); cursor: pointer; }
+.mode .ico { font-size: 26px; width: 40px; text-align: center; }
+.mode b { display: block; font-size: 17px; font-weight: 700; }
+.mode span { color: var(--muted); font-size: 13px; font-weight: 500; }
+.sizes { display: flex; gap: 8px; margin-top: 10px; }
+.sizes button { flex: 1; border: 0; border-radius: 999px; padding: 7px 0; background: var(--accent); color: var(--accent-ink); font-weight: 700; cursor: pointer; }
+.menu-foot { display: flex; gap: 12px; margin-top: auto; padding-top: 12px; }
+.menu-foot .btn { flex: 1; }
+
+/* Spiel */
+.info { display: flex; justify-content: space-between; color: var(--muted); font-weight: 600; margin: 2px 4px 8px; }
+.preview { height: 44px; display: flex; justify-content: center; align-items: center; }
+.preview span { background: var(--accent); color: var(--accent-ink); padding: 6px 16px; border-radius: 999px; font-size: 20px; font-weight: 800; letter-spacing: 2px; }
+.preview span:empty { display: none; }
+.preview span.bad { background: var(--danger); color: #fff; }
+.board-wrap { position: relative; width: min(100%, 440px); aspect-ratio: 1; margin: 0 auto; touch-action: none; }
+.board { position: relative; z-index: 0; width: 100%; height: 100%; display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 4px; }
+.board svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+.cell { display: flex; align-items: center; justify-content: center; background: var(--tile); font-weight: 700; font-size: calc(min(92vw, 440px) / var(--n) * .45); color: var(--text); }
+.cell span { position: relative; z-index: 2; }
+.cell.sel, .cell.found { color: var(--found-ink); }
+.cell.hint { outline: 3px solid var(--accent); outline-offset: -3px; animation: pulse 1.2s infinite; }
+@keyframes pulse { 50% { outline-color: transparent; } }
+.shake { animation: shake .35s; }
+@keyframes shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+.words { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.chip { min-width: 72px; text-align: center; padding: 5px 14px; border-radius: 999px; background: var(--card); font-size: 13px; font-weight: 600; color: var(--text); }
+.chip.found { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.toast { position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 70px); transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 8px 16px; border-radius: 999px; font-weight: 600; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; }
+.toast.show { opacity: 1; }
+
+/* Dialog */
+dialog { border: 0; border-radius: 20px; padding: 24px; width: min(90vw, 360px); background: var(--bg); color: var(--text); text-align: center; }
+dialog::backdrop { background: #0008; }
+dialog h3 { margin: 0 0 8px; font-size: 24px; color: var(--accent); }
+dialog .actions { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+
+/* Statistik */
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.tile { background: var(--tile); padding: 14px 6px; text-align: center; }
+.tile b { display: block; font-size: 26px; font-weight: 800; }
+.tile span { font-size: 12px; color: var(--muted); font-weight: 500; }
+h3.sec { margin: 22px 4px 10px; font-size: 16px; }
+.barrow { display: flex; align-items: center; gap: 10px; margin: 8px 4px; font-weight: 500; }
+.barrow span:first-child { width: 90px; }
+.barrow .track { flex: 1; height: 20px; background: var(--card); border-radius: 999px; overflow: hidden; }
+.barrow .fill { height: 100%; background: var(--accent); border-radius: 999px; min-width: 4px; }
+.barrow b { width: 36px; text-align: right; }
+
+/* Konto */
+.form { background: var(--card); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.form input { font: inherit; font-size: 16px; padding: 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); -webkit-user-select: text; user-select: text; }
+.form .row { display: flex; gap: 10px; } .form .row .btn { flex: 1; }
+.msg { color: var(--muted); min-height: 1.2em; margin: 0; }
+.msg.err { color: var(--danger); }
+</style>
+</head>
+<body>
+
+<section id="menu" class="screen active">
+  <div class="logo"><h1>Wortsalat</h1><p>Finde die Wörter im Buchstabensalat</p></div>
+  <button class="mode" data-start="tag"><span class="ico">📅</span><div><b>Tagesrätsel</b><span id="dailyInfo"></span></div></button>
+  <div class="mode" style="display:block;cursor:default">
+    <div style="display:flex;gap:14px;align-items:center"><span class="ico">🎲</span><div><b>Freies Spiel</b><span>Größe wählen</span></div></div>
+    <div class="sizes"><button data-size="4">4×4</button><button data-size="5">5×5</button><button data-size="6">6×6</button><button data-size="8">8×8</button></div>
+  </div>
+  <button class="mode" data-start="zeit"><span class="ico">⏱️</span><div><b>Zeitmodus</b><span id="timedInfo"></span></div></button>
+  <button class="mode" data-start="level"><span class="ico">🏆</span><div><b>Level-Modus</b><span id="levelInfo"></span></div></button>
+  <div class="menu-foot">
+    <button class="btn light" data-go="stats">📊 Statistik</button>
+    <button class="btn light" data-go="account" id="accountBtn">👤 Konto</button>
+  </div>
+</section>
+
+<section id="game" class="screen">
+  <div class="bar">
+    <button class="icon-btn" id="back" aria-label="Zurück">←</button>
+    <h2 id="theme"></h2>
+    <button class="icon-btn" id="hint" aria-label="Hinweis">💡</button>
+  </div>
+  <div class="info"><span id="infoL"></span><span id="infoR"></span></div>
+  <div class="preview"><span id="preview"></span></div>
+  <div class="board-wrap" id="boardWrap"><div class="board" id="board"></div></div>
+  <div class="words" id="words"></div>
+</section>
+
+<section id="stats" class="screen">
+  <div class="bar"><button class="icon-btn" data-go="menu" aria-label="Zurück">←</button><h2>Statistik</h2><span style="width:44px"></span></div>
+  <div id="statsBody"></div>
+</section>
+
+<section id="account" class="screen">
+  <div class="bar"><button class="icon-btn" data-go="menu" aria-label="Zurück">←</button><h2>Konto</h2><span style="width:44px"></span></div>
+  <div id="accountBody"></div>
+</section>
+
+<dialog id="dlg"><h3 id="dlgTitle"></h3><div id="dlgBody"></div><div class="actions" id="dlgActions"></div></dialog>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { dailyPuzzle, levelPuzzle, randomPuzzle, neighbors, today } from './game.js';
+import * as db from './db.js';
+
+const $ = id => document.getElementById(id);
+const TIME_LIMIT = 90;
+let g = null; // aktuelles Spiel
+let timer = null;
+
+// ---------- Navigation ----------
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id));
+  if (id === 'menu') renderMenu();
+  if (id === 'stats') renderStats();
+  if (id === 'account') renderAccount();
+}
+document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => show(b.dataset.go));
+document.querySelectorAll('[data-start]').forEach(b => b.onclick = () => start(b.dataset.start));
+document.querySelectorAll('[data-size]').forEach(b => b.onclick = () => start('frei', +b.dataset.size));
+$('back').onclick = () => { stopTimer(); show('menu'); };
+
+function toast(text) {
+  const t = $('toast'); t.textContent = text; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 1400);
+}
+
+function dialog(title, html, actions) {
+  $('dlgTitle').textContent = title;
+  $('dlgBody').innerHTML = html;
+  $('dlgActions').replaceChildren(...actions.map(([label, fn, light]) => {
+    const b = document.createElement('button');
+    b.className = 'btn' + (light ? ' light' : ''); b.textContent = label;
+    b.onclick = () => { $('dlg').close(); fn(); };
+    return b;
+  }));
+  $('dlg').showModal();
+}
+
+function streakNow(p, ref = today()) {
+  const y = new Date(ref + 'T12:00'); y.setDate(y.getDate() - 1);
+  return p.last_daily === ref || p.last_daily === y.toLocaleDateString('sv') ? p.daily_streak : 0;
+}
+
+function renderMenu() {
+  const p = db.progress();
+  const done = db.dailyState(today())?.done;
+  $('dailyInfo').textContent = (done ? '✓ Heute geschafft' : 'Neues Rätsel wartet') + ` · Serie ${streakNow(p)} 🔥`;
+  $('timedInfo').textContent = `${TIME_LIMIT} Sekunden · Rekord ${p.timed_highscore}`;
+  $('levelInfo').textContent = `Weiter mit Level ${p.current_level}`;
+  const u = db.getUser();
+  $('accountBtn').textContent = u ? '👤 ' + u.email.split('@')[0] : '👤 Anmelden';
+}
+
+// ---------- Spielstart ----------
+function start(mode, size) {
+  stopTimer();
+  const p = db.progress();
+  let puzzle;
+  if (mode === 'tag') puzzle = dailyPuzzle();
+  else if (mode === 'level') puzzle = levelPuzzle(p.current_level);
+  else puzzle = randomPuzzle(mode === 'zeit' ? 5 : size);
+  g = { mode, puzzle, found: {}, hints: [], startedAt: Date.now(), score: 0, wordsTotal: 0, level: p.current_level, date: today() };
+  if (mode === 'tag') {
+    const s = db.dailyState(today());
+    if (s) Object.assign(g, { found: s.found, hints: s.hints, startedAt: s.startedAt ?? g.startedAt });
+  }
+  if (mode === 'zeit') {
+    g.endsAt = Date.now() + TIME_LIMIT * 1000;
+    timer = setInterval(tick, 250);
+  }
+  show('game');
+  draw();
+  if (mode === 'tag' && db.dailyState(today())?.done) dialog('Schon gelöst!', '<p>Morgen gibt es ein neues Tagesrätsel.</p>', [['OK', () => {}]]);
+}
+
+function stopTimer() { clearInterval(timer); timer = null; }
+
+function tick() {
+  const left = Math.max(0, Math.ceil((g.endsAt - Date.now()) / 1000));
+  $('infoR').textContent = `⏱️ ${left}s`;
+  if (left === 0) timeUp();
+}
+
+// ---------- Zeichnen ----------
+function draw() {
+  const { puzzle, mode } = g;
+  const n = puzzle.size;
+  $('theme').textContent = puzzle.title;
+  const foundCount = Object.keys(g.found).length;
+  $('infoL').textContent = `${foundCount}/${puzzle.words.length} Wörter`;
+  $('infoR').textContent = mode === 'level' ? `Level ${g.level}` : mode === 'tag' ? today().split('-').reverse().join('.') : mode === 'zeit' ? `⏱️ ${Math.max(0, Math.ceil((g.endsAt - Date.now()) / 1000))}s · ${g.score} P` : `${n}×${n}`;
+  if (mode === 'zeit') $('infoL').textContent += ` · ${g.score} Punkte`;
+
+  const board = $('board');
+  board.style.setProperty('--n', n);
+  const foundCells = new Set(Object.values(g.found).flat());
+  const hintCells = new Set(g.hints.filter(i => !g.found[i]).map(i => puzzle.words[i].path[0]));
+  board.innerHTML = puzzle.grid.map((ch, i) =>
+    `<div class="cell${foundCells.has(i) ? ' found' : ''}${hintCells.has(i) ? ' hint' : ''}"><span>${ch}</span></div>`).join('')
+    + '<svg id="lines" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>';
+  drawLines();
+
+  $('words').innerHTML = puzzle.words.map((w, i) => g.found[i]
+    ? `<span class="chip found">${w.word}</span>`
+    : `<span class="chip">${g.hints.includes(i) ? w.word[0] + ' · ' : ''}${w.word.length}</span>`).join('');
+  $('hint').disabled = foundCount === puzzle.words.length || puzzle.words.every((_, i) => g.found[i] || g.hints.includes(i));
+}
+
+const center = (i, n) => [((i % n) + 0.5) * 100 / n, (Math.floor(i / n) + 0.5) * 100 / n];
+
+function drawLines(sel = []) {
+  const n = g.puzzle.size;
+  const line = (path, color, op) => `<polyline points="${path.map(i => center(i, n).join(',')).join(' ')}" fill="none" stroke="${color}" stroke-opacity="${op}" stroke-width="${60 / n}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  $('lines').innerHTML = Object.entries(g.found).map(([, p]) => line(p, 'var(--accent)', 1)).join('')
+    + (sel.length > 1 ? line(sel, 'var(--accent-2)', .9) : '');
+}
+
+// ---------- Wischen ----------
+let sel = null;
+function cellAt(x, y) {
+  const r = $('board').getBoundingClientRect(), n = g.puzzle.size, cw = r.width / n;
+  const col = Math.floor((x - r.left) / cw), row = Math.floor((y - r.top) / cw);
+  if (col < 0 || row < 0 || col >= n || row >= n) return null;
+  const [cx, cy] = [r.left + (col + .5) * cw, r.top + (row + .5) * cw];
+  return Math.hypot(x - cx, y - cy) < cw * 0.42 ? row * n + col : null; // Ecken frei lassen → Diagonalen leichter
+}
+function updateSel() {
+  document.querySelectorAll('.cell.sel').forEach(c => c.classList.remove('sel'));
+  sel.forEach(i => $('board').children[i].classList.add('sel'));
+  const p = $('preview'); p.className = ''; p.textContent = sel.map(i => g.puzzle.grid[i]).join('');
+  drawLines(sel);
+}
+const wrap = $('boardWrap');
+wrap.addEventListener('pointerdown', e => {
+  if (!g || $('dlg').open) return;
+  const c = cellAt(e.clientX, e.clientY);
+  if (c === null) return;
+  wrap.setPointerCapture(e.pointerId);
+  sel = [c]; updateSel();
+});
+wrap.addEventListener('pointermove', e => {
+  if (!sel) return;
+  const c = cellAt(e.clientX, e.clientY);
+  if (c === null || c === sel.at(-1)) return;
+  if (c === sel.at(-2)) sel.pop();
+  else if (!sel.includes(c) && neighbors(sel.at(-1), g.puzzle.size).includes(c)) sel.push(c);
+  else return;
+  updateSel();
+});
+const endSel = () => {
+  if (!sel) return;
+  const path = sel; sel = null;
+  submit(path);
+};
+wrap.addEventListener('pointerup', endSel);
+wrap.addEventListener('pointercancel', endSel);
+
+function submit(path) {
+  const word = path.map(i => g.puzzle.grid[i]).join('');
+  const idx = g.puzzle.words.findIndex((w, i) => w.word === word && !g.found[i]);
+  const p = $('preview');
+  if (idx >= 0) {
+    g.found[idx] = path;
+    g.score += word.length;
+    p.textContent = '';
+    draw();
+    if (g.mode === 'tag') db.setDailyState(g.date, { found: g.found, hints: g.hints, startedAt: g.startedAt, done: false });
+    if (Object.keys(g.found).length === g.puzzle.words.length) setTimeout(solved, 350);
+    return;
+  }
+  drawLines();
+  document.querySelectorAll('.cell.sel').forEach(c => c.classList.remove('sel'));
+  if (path.length < 2) { p.textContent = ''; return; }
+  if (g.puzzle.words.some(w => w.word === word)) toast('Schon gefunden');
+  p.className = 'bad';
+  wrap.classList.remove('shake'); void wrap.offsetWidth; wrap.classList.add('shake');
+  setTimeout(() => { if (!sel) { p.textContent = ''; p.className = ''; } }, 500);
+}
+
+$('hint').onclick = () => {
+  const i = g.puzzle.words.findIndex((_, i) => !g.found[i] && !g.hints.includes(i));
+  if (i < 0) return;
+  g.hints.push(i);
+  if (g.mode === 'tag') db.setDailyState(g.date, { found: g.found, hints: g.hints, startedAt: g.startedAt, done: false });
+  draw();
+};
+
+// ---------- Ende ----------
+function record(extra) {
+  db.recordGame({
+    mode: g.mode, size: g.puzzle.size, level: g.mode === 'level' ? g.level : null,
+    words_found: Object.keys(g.found).length, words_total: g.puzzle.words.length,
+    hints: g.hints.length, seconds: Math.round((Date.now() - g.startedAt) / 1000), won: true, ...extra,
+  });
+}
+
+function solved() {
+  const secs = Math.round((Date.now() - g.startedAt) / 1000);
+  const time = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+  if (g.mode === 'zeit') {
+    g.wordsTotal += g.puzzle.words.length;
+    g.foundTotal = (g.foundTotal ?? 0) + g.puzzle.words.length;
+    g.hintsTotal = (g.hintsTotal ?? 0) + g.hints.length;
+    g.puzzle = randomPuzzle(5); g.found = {}; g.hints = [];
+    toast('Neues Gitter!');
+    draw();
+    return;
+  }
+  record();
+  if (g.mode === 'tag') {
+    db.setDailyState(g.date, { found: g.found, hints: g.hints, startedAt: g.startedAt, done: true });
+    const p = db.progress();
+    if (p.last_daily !== g.date) {
+      const streak = streakNow(p, g.date) + 1;
+      db.setProgress({ daily_streak: streak, best_streak: Math.max(p.best_streak, streak), last_daily: g.date });
+    }
+    dialog('Geschafft!', `<p>Zeit ${time} · Hinweise ${g.hints.length}<br>Serie: ${db.progress().daily_streak} 🔥</p>`, [['Zum Menü', () => show('menu')]]);
+  } else if (g.mode === 'level') {
+    db.setProgress({ current_level: Math.max(db.progress().current_level, g.level + 1) });
+    dialog(`Level ${g.level} geschafft!`, `<p>Zeit ${time} · Hinweise ${g.hints.length}</p>`,
+      [[`Weiter zu Level ${g.level + 1}`, () => start('level')], ['Menü', () => show('menu'), true]]);
+  } else {
+    const n = g.puzzle.size;
+    dialog('Geschafft!', `<p>Zeit ${time} · Hinweise ${g.hints.length}</p>`,
+      [['Neues Rätsel', () => start('frei', n)], ['Menü', () => show('menu'), true]]);
+  }
+}
+
+function timeUp() {
+  stopTimer();
+  const found = (g.foundTotal ?? 0) + Object.keys(g.found).length;
+  record({ size: 5, words_found: found, words_total: g.wordsTotal + g.puzzle.words.length, score: g.score,
+           hints: (g.hintsTotal ?? 0) + g.hints.length, seconds: TIME_LIMIT, won: false });
+  const p = db.progress();
+  const best = g.score > p.timed_highscore;
+  if (best) db.setProgress({ timed_highscore: g.score });
+  dialog('Zeit um! ⏱️', `<p><b style="font-size:40px">${g.score}</b> Punkte<br>${found} Wörter${best ? '<br>🎉 Neuer Rekord!' : `<br>Rekord: ${p.timed_highscore}`}</p>`,
+    [['Nochmal', () => start('zeit')], ['Menü', () => show('menu'), true]]);
+}
+
+// ---------- Statistik ----------
+function renderStats() {
+  const games = db.games(), p = db.progress();
+  const by = m => games.filter(x => x.mode === m);
+  const words = games.reduce((s, x) => s + x.words_found, 0);
+  const hints = games.reduce((s, x) => s + x.hints, 0);
+  const modes = [['tag', 'Tagesrätsel'], ['frei', 'Frei'], ['zeit', 'Zeitmodus'], ['level', 'Level']];
+  const max = Math.max(1, ...modes.map(([m]) => by(m).length));
+  const sizes = [4, 5, 6, 8].map(s => [s, by('frei').filter(x => x.size === s).length]);
+  const tile = (v, l) => `<div class="tile"><b>${v}</b><span>${l}</span></div>`;
+  const bar = (label, v, m) => `<div class="barrow"><span>${label}</span><div class="track"><div class="fill" style="width:${v / m * 100}%"></div></div><b>${v}</b></div>`;
+  $('statsBody').innerHTML = `
+    <div class="tiles">
+      ${tile(games.length, 'Gespielt')}${tile(words, 'Wörter')}${tile(hints, 'Hinweise')}
+      ${tile(streakNow(p), 'Serie 🔥')}${tile(p.best_streak, 'Beste Serie')}${tile(by('tag').length, 'Tagesrätsel')}
+      ${tile(p.current_level, 'Level')}${tile(p.timed_highscore, 'Zeit-Rekord')}${tile(by('frei').length, 'Freie Spiele')}
+    </div>
+    <h3 class="sec">Nach Modus</h3>${modes.map(([m, l]) => bar(l, by(m).length, max)).join('')}
+    <h3 class="sec">Freies Spiel nach Größe</h3>${sizes.map(([s, v]) => bar(`${s}×${s}`, v, Math.max(1, ...sizes.map(x => x[1])))).join('')}
+    <p class="msg" style="margin-top:18px;text-align:center">${db.getUser() ? 'Mit deinem Konto synchronisiert.' : 'Nur auf diesem Gerät gespeichert – melde dich an, um zu synchronisieren.'}</p>`;
+}
+
+// ---------- Konto ----------
+function renderAccount() {
+  const body = $('accountBody');
+  if (!db.online) {
+    body.innerHTML = `<div class="form"><b>Online-Konto noch nicht eingerichtet</b><p class="msg">Supabase-Daten in config.js eintragen. Bis dahin wird alles auf diesem Gerät gespeichert.</p></div>`;
+    return;
+  }
+  const u = db.getUser();
+  if (u) {
+    body.innerHTML = `<div class="form"><b>Angemeldet als</b><span>${u.email.replace(/</g, '&lt;')}</span><p class="msg">Fortschritt und Statistik werden automatisch synchronisiert.</p><button class="btn light" id="logout">Abmelden</button></div>`;
+    $('logout').onclick = async () => { await db.signOut(); renderAccount(); };
+    return;
+  }
+  body.innerHTML = `<form class="form" id="loginForm">
+      <b>Anmelden oder Konto erstellen</b>
+      <input id="email" type="email" placeholder="E-Mail" autocomplete="username" required>
+      <input id="pw" type="password" placeholder="Passwort (mind. 6 Zeichen)" autocomplete="current-password" minlength="6" required>
+      <div class="row"><button class="btn" value="in">Anmelden</button><button class="btn light" value="up">Registrieren</button></div>
+      <p class="msg" id="msg"></p>
+    </form>`;
+  $('loginForm').onsubmit = async e => {
+    e.preventDefault();
+    const msg = $('msg'); msg.className = 'msg'; msg.textContent = 'Einen Moment…';
+    try {
+      const info = e.submitter.value === 'up' ? await db.signUp($('email').value, $('pw').value) : await db.signIn($('email').value, $('pw').value);
+      if (info) { msg.textContent = info; return; }
+      renderAccount();
+    } catch (err) {
+      msg.className = 'msg err';
+      msg.textContent = err.message === 'Invalid login credentials' ? 'E-Mail oder Passwort falsch.' : err.message;
+    }
+  };
+}
+
+// ---------- Start ----------
+renderMenu();
+db.init().then(renderMenu).catch(e => console.warn('Konto nicht erreichbar', e));
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
