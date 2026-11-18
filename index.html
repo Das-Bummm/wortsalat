@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Wortsalat">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#f5f5f5">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap" rel="stylesheet">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -16,8 +16,8 @@
 <link rel="manifest" href="manifest.json">
 <style>
 :root {
-  --bg: #ffffff; --card: #f3f2f0; --tile: #f1f0ee; --line: #e3e1dd;
-  --text: #1c1c1c; --muted: #8a8a8a; --accent: #2e9d5b; --accent-2: #3daa6a; --accent-ink: #ffffff;
+  --bg: #f5f5f5; --card: #e9e9e9; --tile: #eaeaea; --line: #dcdcdc;
+  --text: #1d3b40; --muted: #8a8a8a; --accent: #2e9d5b; --accent-2: #3daa6a; --accent-ink: #ffffff;
   --found-ink: #f4e88e; --danger: #c8302c;
 }
 @media (prefers-color-scheme: dark) {
@@ -84,7 +84,15 @@ button { font: inherit; }
 .edit input[type=text], .edit input[type=number] { font: inherit; font-size: 16px; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); -webkit-user-select: text; user-select: text; width: 100%; }
 
 /* Spiel */
-.info { display: flex; justify-content: space-between; color: var(--muted); font-weight: 600; margin: 2px 4px 8px; }
+.logo-btn { width: 40px; height: 40px; border: 0; padding: 0; border-radius: 50%; overflow: hidden; background: var(--card); cursor: pointer; }
+.logo-btn img { width: 100%; height: 100%; display: block; }
+#clock { color: var(--muted); font-variant-numeric: tabular-nums; }
+.task { margin: 10px 4px 2px; }
+.task b { display: block; color: var(--accent); font-size: 20px; font-weight: 700; }
+.task span { color: var(--muted); font-size: 15px; font-weight: 500; }
+.howto { color: var(--accent); font-weight: 600; margin: 20px 4px 0; }
+.howto:empty { display: none; }
+.logo button { border: 0; background: none; padding: 0; margin-top: 8px; color: var(--accent); font-weight: 600; text-decoration: underline; cursor: pointer; }
 .preview { height: 44px; display: flex; justify-content: center; align-items: center; }
 .preview span { background: var(--accent); color: var(--accent-ink); padding: 6px 16px; border-radius: 999px; font-size: 20px; font-weight: 800; letter-spacing: 2px; }
 .preview span:empty { display: none; }
@@ -137,7 +145,7 @@ h3.sec { margin: 22px 4px 10px; font-size: 16px; }
 <body>
 
 <section id="menu" class="screen active">
-  <div class="logo"><h1>Wortsalat</h1><p>Finde die Wörter im Buchstabensalat</p></div>
+  <div class="logo"><h1>Wortsalat</h1><p>Finde die Wörter im Buchstabensalat</p><button data-start="tutorial">So geht's</button></div>
   <button class="mode" data-start="tag"><span class="ico">📅</span><div><b>Tagesrätsel</b><span id="dailyInfo"></span></div></button>
   <div class="mode" style="display:block;cursor:default">
     <div style="display:flex;gap:14px;align-items:center"><span class="ico">🎲</span><div><b>Freies Spiel</b><span>Größe wählen</span></div></div>
@@ -155,14 +163,15 @@ h3.sec { margin: 22px 4px 10px; font-size: 16px; }
 
 <section id="game" class="screen">
   <div class="bar">
-    <button class="icon-btn" id="back" aria-label="Zurück">←</button>
-    <h2 id="theme"></h2>
+    <button class="logo-btn" id="back" aria-label="Zurück zum Menü"><img src="icon-180.png" alt=""></button>
+    <h2 id="clock">00:00</h2>
     <button class="icon-btn" id="hint" aria-label="Hinweis">💡</button>
   </div>
-  <div class="info"><span id="infoL"></span><span id="infoR"></span></div>
+  <div class="task"><b id="theme"></b><span id="sub"></span></div>
   <div class="preview"><span id="preview"></span></div>
   <div class="board-wrap" id="boardWrap"><div class="board" id="board"></div></div>
   <div class="words" id="words"></div>
+  <p class="howto" id="howto"></p>
 </section>
 
 <section id="stats" class="screen">
@@ -190,7 +199,7 @@ h3.sec { margin: 22px 4px 10px; font-size: 16px; }
 <div class="toast" id="toast"></div>
 
 <script type="module">
-import { dailyPuzzle, levelPuzzle, randomPuzzle, neighbors, today } from './game.js';
+import { dailyPuzzle, levelPuzzle, randomPuzzle, tutorialPuzzle, neighbors, today } from './game.js';
 import * as db from './db.js';
 
 const $ = id => document.getElementById(id);
@@ -253,26 +262,28 @@ function start(mode, size) {
   let puzzle;
   if (mode === 'tag') puzzle = dailyPuzzle();
   else if (mode === 'level') puzzle = levelPuzzle(p.current_level);
+  else if (mode === 'tutorial') puzzle = tutorialPuzzle();
   else puzzle = randomPuzzle(mode === 'zeit' ? 5 : size);
   g = { mode, puzzle, found: {}, hints: [], startedAt: Date.now(), score: 0, wordsTotal: 0, level: p.current_level, date: today() };
   if (mode === 'tag') {
     const s = db.dailyState(today());
     if (s) Object.assign(g, { found: s.found, hints: s.hints, startedAt: s.startedAt ?? g.startedAt });
   }
-  if (mode === 'zeit') {
-    g.endsAt = Date.now() + TIME_LIMIT * 1000;
-    timer = setInterval(tick, 250);
-  }
+  if (mode === 'zeit') g.endsAt = Date.now() + TIME_LIMIT * 1000;
+  timer = setInterval(tick, 250);
   show('game');
   draw();
-  if (mode === 'tag' && db.dailyState(today())?.done) dialog('Schon gelöst!', '<p>Morgen gibt es ein neues Tagesrätsel.</p>', [['OK', () => {}]]);
+  tick();
+  if (mode === 'tag' && db.dailyState(today())?.done) stopTimer(), $('clock').textContent = '✓', dialog('Schon gelöst!', '<p>Morgen gibt es ein neues Tagesrätsel.</p>', [['OK', () => {}]]);
 }
 
 function stopTimer() { clearInterval(timer); timer = null; }
 
+const clock = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 function tick() {
+  if (g.mode !== 'zeit') { $('clock').textContent = clock(Math.floor((Date.now() - g.startedAt) / 1000)); return; }
   const left = Math.max(0, Math.ceil((g.endsAt - Date.now()) / 1000));
-  $('infoR').textContent = `⏱️ ${left}s`;
+  $('clock').textContent = clock(left);
   if (left === 0) timeUp();
 }
 
@@ -280,11 +291,17 @@ function tick() {
 function draw() {
   const { puzzle, mode } = g;
   const n = puzzle.size;
-  $('theme').textContent = puzzle.title;
+  $('theme').textContent = mode === 'tutorial' ? `Finde die ${puzzle.words.length} versteckten Obstsorten` : puzzle.title;
   const foundCount = Object.keys(g.found).length;
-  $('infoL').textContent = `${foundCount}/${puzzle.words.length} Wörter`;
-  $('infoR').textContent = mode === 'level' ? `Level ${g.level}` : mode === 'tag' ? today().split('-').reverse().join('.') : mode === 'zeit' ? `⏱️ ${Math.max(0, Math.ceil((g.endsAt - Date.now()) / 1000))}s · ${g.score} P` : `${n}×${n}`;
-  if (mode === 'zeit') $('infoL').textContent += ` · ${g.score} Punkte`;
+  const first = puzzle.words.reduce((a, b) => (b.word.length < a.word.length ? b : a)).word;
+  $('sub').textContent = {
+    tutorial: foundCount ? 'Super! Ein Buchstabe verschwindet, sobald kein Wort ihn mehr braucht.' : `Fang mit „${first[0] + first.slice(1).toLowerCase()}“ an`,
+    tag: `Tagesrätsel · ${g.date.split('-').reverse().join('.')}`,
+    level: `Level ${g.level}`,
+    zeit: `Zeitmodus · ${g.score} Punkte`,
+    frei: `Freies Spiel · ${n}×${n}`,
+  }[mode];
+  $('howto').textContent = mode === 'tutorial' ? 'Verbinde benachbarte Buchstaben zu Wörtern – auch schräg.' : '';
 
   const board = $('board');
   board.style.setProperty('--n', n);
@@ -398,6 +415,12 @@ function record(extra) {
 function solved() {
   const secs = Math.round((Date.now() - g.startedAt) / 1000);
   const time = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+  if (g.mode === 'tutorial') {
+    stopTimer();
+    dialog('Tutorial geschafft!', '<p>Jetzt kennst du alles. Viel Spaß beim Wortsalat!</p>', [["Los geht's", () => show('menu')]]);
+    return;
+  }
+  if (g.mode !== 'zeit') stopTimer();
   if (g.mode === 'zeit') {
     g.wordsTotal += g.puzzle.words.length;
     g.foundTotal = (g.foundTotal ?? 0) + g.puzzle.words.length;
@@ -573,6 +596,8 @@ function editUser(u) {
 
 // ---------- Start ----------
 renderMenu();
+// Beim allerersten Start einmal das Tutorial zeigen
+try { if (!localStorage.getItem('ws_tutorial')) { localStorage.setItem('ws_tutorial', '1'); start('tutorial'); } } catch {}
 db.init().then(renderMenu).catch(e => console.warn('Konto nicht erreichbar', e));
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
 </script>

@@ -3,8 +3,8 @@
   "short_name": "Wortsalat",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "background_color": "#f5f5f5",
+  "theme_color": "#f5f5f5",
   "lang": "de",
   "icons": [
     { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" },

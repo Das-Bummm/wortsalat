@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { THEMES } from './puzzles.js';
-import { makePuzzle, neighbors, dailyPuzzle, levelPuzzle, MIN_WORDS } from './game.js';
+import { makePuzzle, neighbors, dailyPuzzle, levelPuzzle, tutorialPuzzle, MIN_WORDS } from './game.js';
 
 const stats = {};
 for (let t = 0; t < THEMES.length; t++) for (const size of [4, 5, 6, 7, 8]) {
@@ -21,6 +21,9 @@ for (let t = 0; t < THEMES.length; t++) for (const size of [4, 5, 6, 7, 8]) {
   }
 }
 assert.deepEqual(dailyPuzzle('2026-11-18'), dailyPuzzle('2026-11-18'));
+const tut = tutorialPuzzle();
+assert.equal(tut.title, 'Obst');
+assert.ok(tut.words.some(w => w.word === 'KIWI'));
 for (let l = 1; l <= 80; l++) assert.ok(levelPuzzle(l).words.length >= MIN_WORDS);
 for (const [size, s] of Object.entries(stats))
   console.log(`${size}×${size}: Ø ${(s.words / s.n).toFixed(1)} Wörter, Ø ${(s.shared / s.n).toFixed(1)} geteilte Felder, Ø ${(s.holes / s.n).toFixed(1)} Lücken`);

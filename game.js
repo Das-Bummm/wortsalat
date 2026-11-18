@@ -86,6 +86,9 @@ export function dailyPuzzle(date = today()) {
   return makePuzzle(h % THEMES.length, 4, h);
 }
 
+// Feste Übungsrunde für den ersten Start (Seed 185 ergibt 6 Obstsorten inkl. KIWI, siehe selftest)
+export const tutorialPuzzle = () => makePuzzle(THEMES.findIndex(t => t.title === 'Obst'), 4, 185);
+
 export const levelSize = lvl => (lvl <= 10 ? 5 : lvl <= 25 ? 6 : lvl <= 45 ? 7 : 8);
 
 export function levelPuzzle(lvl) {
