@@ -31,7 +31,9 @@ export const neighbors = (i, size) => {
   return out;
 };
 
-export const MIN_WORDS = 6;
+// 4×4 hat nur 16 Felder: mit Wörtern ab 4 Buchstaben passen dort 5 Wörter, sonst mindestens 6
+export const minWords = size => (size === 4 ? 5 : 6);
+const MIN_LEN = 4, MAX_LEN = 12;
 const MAX_WORDS = { 4: 7, 5: 9, 6: 11, 7: 13, 8: 16 };
 
 // Legt ein Wort als Pfad; Zellen dürfen mit anderen Wörtern geteilt werden, wenn der Buchstabe passt.
@@ -57,16 +59,18 @@ function placePath(word, grid, size, r) {
 // wie oft sie benutzt wird, ergibt sich aus den Pfaden aller Wörter.
 export function makePuzzle(themeIndex, size, seed) {
   const want = MAX_WORDS[size] ?? 9;
-  // Klappt ein Thema nicht, das nächste nehmen (bei 4×4 passt nur etwa jedes zweite Thema)
+  // Klappt ein Thema nicht, das nächste nehmen (bei 4×4 passen nur etwa 60 der 84 Themen)
   for (let attempt = 0; attempt < THEMES.length * 40; attempt++) {
     const theme = THEMES[(themeIndex + Math.floor(attempt / 40)) % THEMES.length];
     const r = rng(seed + attempt * 7919);
     const grid = new Array(size * size).fill(null);
     const words = [];
-    const pool = shuffle(theme.words.filter(w => w.length >= 3 && w.length <= Math.max(size + 2, 6)), r);
-    // 4×4: kurze Wörter zuerst, sonst passen kaum 6 Wörter auf 16 Felder (klappt nur in ~5 % der Versuche, daher viele Versuche)
-    if (size === 4) pool.sort((a, b) => a.length - b.length);
-    for (const w of pool) {
+    const all = shuffle(theme.words.filter(w => w.length >= MIN_LEN && w.length <= MAX_LEN), r);
+    // Ein langes Wort zuerst legen, damit fast jedes Rätsel eins hat; bei kleinen Feldern danach kurze zuerst, sonst passen zu wenige rein
+    const long = all.find(w => w.length >= (size === 4 ? 7 : 8));
+    const rest = all.filter(w => w !== long);
+    if (size <= 5) rest.sort((a, b) => a.length - b.length);
+    for (const w of long ? [long, ...rest] : rest) {
       if (words.length >= want) break;
       const path = placePath(w, grid, size, r);
       if (!path) continue;
@@ -74,7 +78,7 @@ export function makePuzzle(themeIndex, size, seed) {
       words.push({ word: w, path });
     }
     const covered = grid.filter(Boolean).length;
-    if (words.length >= MIN_WORDS && covered >= size * size * 0.75) return { title: theme.title, size, grid, words };
+    if (words.length >= minWords(size) && covered >= size * size * 0.75) return { title: theme.title, size, grid, words };
   }
   throw new Error('Kein Rätsel möglich: ' + THEMES[themeIndex % THEMES.length].title + ' ' + size);
 }
@@ -86,8 +90,8 @@ export function dailyPuzzle(date = today()) {
   return makePuzzle(h % THEMES.length, 4, h);
 }
 
-// Feste Übungsrunde für den ersten Start (Seed 185 ergibt 6 Obstsorten inkl. KIWI, siehe selftest)
-export const tutorialPuzzle = () => makePuzzle(THEMES.findIndex(t => t.title === 'Obst'), 4, 185);
+// Feste Übungsrunde für den ersten Start (Seed 1 ergibt 5 Obstsorten inkl. KIWI, siehe selftest)
+export const tutorialPuzzle = () => makePuzzle(THEMES.findIndex(t => t.title === 'Obst'), 4, 1);
 
 export const levelSize = lvl => (lvl <= 10 ? 5 : lvl <= 25 ? 6 : lvl <= 45 ? 7 : 8);
 
