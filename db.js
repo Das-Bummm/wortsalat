@@ -119,9 +119,9 @@ export function setProgress(patch) {
 }
 
 // Lokaler Spielstand des Tagesrätsels (nur dieses Gerät)
-// daily2_: Rätsel seit dem Auflöse-Modus anders aufgebaut, alte Spielstände passen nicht mehr
-export const dailyState = date => load('daily2_' + date, null);
-export const setDailyState = (date, s) => save('daily2_' + date, s);
+// daily3_: Tagesrätsel seit 4×4 anders aufgebaut, alte Spielstände passen nicht mehr
+export const dailyState = date => load('daily3_' + date, null);
+export const setDailyState = (date, s) => save('daily3_' + date, s);
 
 // ---------- Rangliste & Admin ----------
 const rows = async q => { const { data, error } = await q; if (error) throw error; return data; };

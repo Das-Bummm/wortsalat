@@ -141,7 +141,7 @@ h3.sec { margin: 22px 4px 10px; font-size: 16px; }
   <button class="mode" data-start="tag"><span class="ico">📅</span><div><b>Tagesrätsel</b><span id="dailyInfo"></span></div></button>
   <div class="mode" style="display:block;cursor:default">
     <div style="display:flex;gap:14px;align-items:center"><span class="ico">🎲</span><div><b>Freies Spiel</b><span>Größe wählen</span></div></div>
-    <div class="sizes"><button data-size="5">5×5</button><button data-size="6">6×6</button><button data-size="7">7×7</button><button data-size="8">8×8</button></div>
+    <div class="sizes"><button data-size="4">4×4</button><button data-size="5">5×5</button><button data-size="6">6×6</button></div>
   </div>
   <button class="mode" data-start="zeit"><span class="ico">⏱️</span><div><b>Zeitmodus</b><span id="timedInfo"></span></div></button>
   <button class="mode" data-start="level"><span class="ico">🏆</span><div><b>Level-Modus</b><span id="levelInfo"></span></div></button>
@@ -299,11 +299,14 @@ function draw() {
     + '<svg id="lines" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>';
   drawLines();
 
-  $('words').innerHTML = puzzle.words.map((w, i) => g.found[i]
+  $('words').innerHTML = alphaOrder().map(i => { const w = puzzle.words[i]; return g.found[i]
     ? `<span class="chip found">${w.word}</span>`
-    : `<span class="chip">${g.hints.includes(i) ? w.word[0] + ' · ' : ''}${w.word.length}</span>`).join('');
+    : `<span class="chip">${g.hints.includes(i) ? w.word[0] + ' · ' : ''}${w.word.length}</span>`; }).join('');
   $('hint').disabled = foundCount === puzzle.words.length || puzzle.words.every((_, i) => g.found[i] || g.hints.includes(i));
 }
+
+// Lösungswörter alphabetisch (deutsch, Umlaute richtig einsortiert); liefert die Wort-Indizes
+const alphaOrder = () => g.puzzle.words.map((_, i) => i).sort((a, b) => g.puzzle.words[a].word.localeCompare(g.puzzle.words[b].word, 'de'));
 
 const center = (i, n) => [((i % n) + 0.5) * 100 / n, (Math.floor(i / n) + 0.5) * 100 / n];
 
@@ -376,8 +379,8 @@ function submit(path) {
 }
 
 $('hint').onclick = () => {
-  const i = g.puzzle.words.findIndex((_, i) => !g.found[i] && !g.hints.includes(i));
-  if (i < 0) return;
+  const i = alphaOrder().find(i => !g.found[i] && !g.hints.includes(i));
+  if (i === undefined) return;
   g.hints.push(i);
   if (g.mode === 'tag') db.setDailyState(g.date, { found: g.found, hints: g.hints, startedAt: g.startedAt, done: false });
   draw();
@@ -444,7 +447,7 @@ function renderStats() {
   const hints = games.reduce((s, x) => s + x.hints, 0);
   const modes = [['tag', 'Tagesrätsel'], ['frei', 'Frei'], ['zeit', 'Zeitmodus'], ['level', 'Level']];
   const max = Math.max(1, ...modes.map(([m]) => by(m).length));
-  const sizes = [5, 6, 7, 8].map(s => [s, by('frei').filter(x => x.size === s).length]);
+  const sizes = [4, 5, 6].map(s => [s, by('frei').filter(x => x.size === s).length]);
   const tile = (v, l) => `<div class="tile"><b>${v}</b><span>${l}</span></div>`;
   const bar = (label, v, m) => `<div class="barrow"><span>${label}</span><div class="track"><div class="fill" style="width:${v / m * 100}%"></div></div><b>${v}</b></div>`;
   $('statsBody').innerHTML = `

@@ -3,7 +3,7 @@ import { THEMES } from './puzzles.js';
 import { makePuzzle, neighbors, dailyPuzzle, levelPuzzle, MIN_WORDS } from './game.js';
 
 const stats = {};
-for (let t = 0; t < THEMES.length; t++) for (const size of [5, 6, 7, 8]) {
+for (let t = 0; t < THEMES.length; t++) for (const size of [4, 5, 6, 7, 8]) {
   for (const seed of [1, 2, 3]) {
     const p = makePuzzle(t, size, t * 31 + size * 7 + seed);
     assert.equal(p.grid.length, size * size);
