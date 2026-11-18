@@ -63,6 +63,36 @@ button { font: inherit; }
 .menu-foot { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: auto; padding-top: 12px; }
 .menu-foot .btn[hidden] { display: none; }
 
+/* Haustiere */
+.pet { position: fixed; left: 0; top: 0; width: 64px; height: 48px; pointer-events: none; z-index: 15; will-change: transform; }
+.pet svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 2px 1px #0002); }
+.pet .leg, .pet .tail { transform-box: fill-box; }
+.pet .leg { transform-origin: 50% 0; transition: transform .3s; }
+.pet.walking .leg.a { animation: step .38s infinite alternate ease-in-out; }
+.pet.walking .leg.b { animation: step .38s infinite alternate-reverse ease-in-out; }
+@keyframes step { from { transform: rotate(24deg); } to { transform: rotate(-24deg); } }
+.pet.walking svg { animation: bob .38s infinite alternate; }
+@keyframes bob { to { transform: translateY(-1.5px); } }
+.pet .tail { transform-origin: 100% 100%; animation: swish 1.6s infinite ease-in-out alternate; }
+@keyframes swish { from { transform: rotate(-14deg); } to { transform: rotate(16deg); } }
+.pet .closed { display: none; }
+.pet.sleeping .eyes { display: none; }
+.pet.sleeping .closed { display: inline; }
+.pet.sleeping .leg { transform: scaleY(.35); }
+.pet.sleeping svg { transform: translateY(5px); }
+.pet.sleeping .tail { animation-duration: 4s; }
+.pet .zzz { position: absolute; right: 0; top: -12px; font-weight: 800; color: var(--muted); opacity: 0; }
+.pet.sleeping .zzz { animation: zzz 2.2s infinite; }
+@keyframes zzz { 0% { opacity: 0; transform: translate(0, 0); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(8px, -16px); } }
+@media (prefers-reduced-motion: reduce) { .pet * { animation: none !important; } }
+.petgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.petcard { border: 0; border-radius: 16px; background: var(--card); color: var(--text); padding: 14px 10px; font: inherit; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.petcard svg { width: 80px; height: 60px; }
+.petcard .soon { font-size: 34px; height: 60px; display: grid; place-items: center; filter: grayscale(1); opacity: .5; }
+.petcard small { color: var(--muted); font-weight: 500; }
+.petcard.on { outline: 3px solid var(--accent); }
+.petcard:disabled { cursor: default; }
+
 /* Rangliste & Admin */
 .tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 8px; }
 .tabs button { flex: none; border: 0; border-radius: 999px; padding: 7px 14px; background: var(--card); color: var(--text); font-weight: 600; cursor: pointer; }
@@ -157,6 +187,7 @@ h3.sec { margin: 22px 4px 10px; font-size: 16px; }
     <button class="btn light" data-go="stats">📊 Statistik</button>
     <button class="btn light" data-go="account" id="accountBtn">👤 Konto</button>
     <button class="btn light" data-go="ranking">🏅 Rangliste</button>
+    <button class="btn light" data-go="pets">🐾 Haustier</button>
     <button class="btn light" data-go="admin" id="adminBtn" hidden>🛠️ Admin</button>
   </div>
 </section>
@@ -191,6 +222,12 @@ h3.sec { margin: 22px 4px 10px; font-size: 16px; }
   <div id="rankBody"></div>
 </section>
 
+<section id="pets" class="screen">
+  <div class="bar"><button class="icon-btn" data-go="menu" aria-label="Zurück">←</button><h2>Haustier</h2><span style="width:44px"></span></div>
+  <p class="msg" style="margin:0 4px 12px">Dein Haustier läuft über Startbildschirm und Spielfeld. Es stört beim Wischen nicht.</p>
+  <div class="petgrid" id="petGrid"></div>
+</section>
+
 <section id="admin" class="screen">
   <div class="bar"><button class="icon-btn" data-go="menu" aria-label="Zurück">←</button><h2>Admin</h2><button class="icon-btn" id="adminReload" aria-label="Neu laden">↻</button></div>
   <div id="adminBody"></div>
@@ -202,6 +239,7 @@ h3.sec { margin: 22px 4px 10px; font-size: 16px; }
 <script type="module">
 import { dailyPuzzle, levelPuzzle, randomPuzzle, tutorialPuzzle, neighbors, today } from './game.js';
 import * as db from './db.js';
+import { PETS, showPet } from './pets.js';
 
 const $ = id => document.getElementById(id);
 const TIME_LIMIT = 90;
@@ -216,6 +254,7 @@ function show(id) {
   if (id === 'account') renderAccount();
   if (id === 'ranking') renderRanking();
   if (id === 'admin') renderAdmin();
+  if (id === 'pets') renderPets();
 }
 document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => show(b.dataset.go));
 document.querySelectorAll('[data-start]').forEach(b => b.onclick = () => start(b.dataset.start));
@@ -616,6 +655,22 @@ function editUser(u) {
     ['Abbrechen', () => {}, true],
   ]);
 }
+
+// ---------- Haustiere ----------
+const SOON_EMOJI = { hund: '🐶', kuh: '🐮', hase: '🐰' };
+const myPet = () => { try { return localStorage.getItem('ws_pet') || 'none'; } catch { return 'none'; } };
+function renderPets() {
+  const cur = myPet();
+  $('petGrid').innerHTML = PETS.map(p => `<button class="petcard${p.id === cur ? ' on' : ''}" data-pet="${p.id}" ${p.soon ? 'disabled' : ''}>
+      ${p.soon ? `<span class="soon">${SOON_EMOJI[p.id] ?? '🐾'}</span>` : p.svg}${p.name}<small>${p.soon ? 'kommt bald' : p.id === cur ? 'ausgewählt' : 'auswählen'}</small></button>`).join('')
+    + `<button class="petcard${cur === 'none' ? ' on' : ''}" data-pet="none"><span class="soon">🚫</span>Kein Haustier<small>${cur === 'none' ? 'ausgewählt' : 'auswählen'}</small></button>`;
+  $('petGrid').querySelectorAll('[data-pet]:not(:disabled)').forEach(b => b.onclick = () => {
+    try { localStorage.setItem('ws_pet', b.dataset.pet); } catch {}
+    showPet(b.dataset.pet);
+    renderPets();
+  });
+}
+showPet(myPet());
 
 // ---------- Start ----------
 renderMenu();
