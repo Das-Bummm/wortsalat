@@ -94,7 +94,10 @@ button { font: inherit; }
 .board svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
 .cell { display: flex; align-items: center; justify-content: center; background: var(--tile); font-weight: 700; font-size: calc(min(92vw, 440px) / var(--n) * .45); color: var(--text); }
 .cell span { position: relative; z-index: 2; }
-.cell.sel, .cell.found { color: var(--found-ink); }
+.cell.sel { color: var(--found-ink); }
+.cell.gone { background: transparent; }
+.cell.vanish { background: var(--tile); animation: vanish .4s forwards; }
+@keyframes vanish { to { transform: scale(.2); opacity: 0; } }
 .cell.hint { outline: 3px solid var(--accent); outline-offset: -3px; animation: pulse 1.2s infinite; }
 @keyframes pulse { 50% { outline-color: transparent; } }
 .shake { animation: shake .35s; }
@@ -138,7 +141,7 @@ h3.sec { margin: 22px 4px 10px; font-size: 16px; }
   <button class="mode" data-start="tag"><span class="ico">📅</span><div><b>Tagesrätsel</b><span id="dailyInfo"></span></div></button>
   <div class="mode" style="display:block;cursor:default">
     <div style="display:flex;gap:14px;align-items:center"><span class="ico">🎲</span><div><b>Freies Spiel</b><span>Größe wählen</span></div></div>
-    <div class="sizes"><button data-size="4">4×4</button><button data-size="5">5×5</button><button data-size="6">6×6</button><button data-size="8">8×8</button></div>
+    <div class="sizes"><button data-size="5">5×5</button><button data-size="6">6×6</button><button data-size="7">7×7</button><button data-size="8">8×8</button></div>
   </div>
   <button class="mode" data-start="zeit"><span class="ico">⏱️</span><div><b>Zeitmodus</b><span id="timedInfo"></span></div></button>
   <button class="mode" data-start="level"><span class="ico">🏆</span><div><b>Level-Modus</b><span id="levelInfo"></span></div></button>
@@ -285,10 +288,14 @@ function draw() {
 
   const board = $('board');
   board.style.setProperty('--n', n);
-  const foundCells = new Set(Object.values(g.found).flat());
+  // Jede Zelle bleibt, solange noch ein ungefundenes Wort über sie läuft
+  const left = new Array(n * n).fill(0);
+  puzzle.words.forEach((w, i) => { if (!g.found[i]) w.path.forEach(c => left[c]++); });
+  const prev = g.left; g.left = left;
   const hintCells = new Set(g.hints.filter(i => !g.found[i]).map(i => puzzle.words[i].path[0]));
   board.innerHTML = puzzle.grid.map((ch, i) =>
-    `<div class="cell${foundCells.has(i) ? ' found' : ''}${hintCells.has(i) ? ' hint' : ''}"><span>${ch}</span></div>`).join('')
+    left[i] ? `<div class="cell${hintCells.has(i) ? ' hint' : ''}"><span>${ch}</span></div>`
+      : `<div class="cell gone${prev?.[i] ? ' vanish' : ''}"><span>${prev?.[i] ? ch : ''}</span></div>`).join('')
     + '<svg id="lines" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>';
   drawLines();
 
@@ -303,8 +310,7 @@ const center = (i, n) => [((i % n) + 0.5) * 100 / n, (Math.floor(i / n) + 0.5) *
 function drawLines(sel = []) {
   const n = g.puzzle.size;
   const line = (path, color, op) => `<polyline points="${path.map(i => center(i, n).join(',')).join(' ')}" fill="none" stroke="${color}" stroke-opacity="${op}" stroke-width="${60 / n}" stroke-linecap="round" stroke-linejoin="round"/>`;
-  $('lines').innerHTML = Object.entries(g.found).map(([, p]) => line(p, 'var(--accent)', 1)).join('')
-    + (sel.length > 1 ? line(sel, 'var(--accent-2)', .9) : '');
+  $('lines').innerHTML = sel.length > 1 ? line(sel, 'var(--accent)', 1) : '';
 }
 
 // ---------- Wischen ----------
@@ -326,14 +332,14 @@ const wrap = $('boardWrap');
 wrap.addEventListener('pointerdown', e => {
   if (!g || $('dlg').open) return;
   const c = cellAt(e.clientX, e.clientY);
-  if (c === null) return;
+  if (c === null || !g.left[c]) return;
   wrap.setPointerCapture(e.pointerId);
   sel = [c]; updateSel();
 });
 wrap.addEventListener('pointermove', e => {
   if (!sel) return;
   const c = cellAt(e.clientX, e.clientY);
-  if (c === null || c === sel.at(-1)) return;
+  if (c === null || !g.left[c] || c === sel.at(-1)) return;
   if (c === sel.at(-2)) sel.pop();
   else if (!sel.includes(c) && neighbors(sel.at(-1), g.puzzle.size).includes(c)) sel.push(c);
   else return;
@@ -352,7 +358,7 @@ function submit(path) {
   const idx = g.puzzle.words.findIndex((w, i) => w.word === word && !g.found[i]);
   const p = $('preview');
   if (idx >= 0) {
-    g.found[idx] = path;
+    g.found[idx] = 1;
     g.score += word.length;
     p.textContent = '';
     draw();
@@ -393,7 +399,7 @@ function solved() {
     g.wordsTotal += g.puzzle.words.length;
     g.foundTotal = (g.foundTotal ?? 0) + g.puzzle.words.length;
     g.hintsTotal = (g.hintsTotal ?? 0) + g.hints.length;
-    g.puzzle = randomPuzzle(5); g.found = {}; g.hints = [];
+    g.puzzle = randomPuzzle(5); g.found = {}; g.hints = []; g.left = null;
     toast('Neues Gitter!');
     draw();
     return;
@@ -438,7 +444,7 @@ function renderStats() {
   const hints = games.reduce((s, x) => s + x.hints, 0);
   const modes = [['tag', 'Tagesrätsel'], ['frei', 'Frei'], ['zeit', 'Zeitmodus'], ['level', 'Level']];
   const max = Math.max(1, ...modes.map(([m]) => by(m).length));
-  const sizes = [4, 5, 6, 8].map(s => [s, by('frei').filter(x => x.size === s).length]);
+  const sizes = [5, 6, 7, 8].map(s => [s, by('frei').filter(x => x.size === s).length]);
   const tile = (v, l) => `<div class="tile"><b>${v}</b><span>${l}</span></div>`;
   const bar = (label, v, m) => `<div class="barrow"><span>${label}</span><div class="track"><div class="fill" style="width:${v / m * 100}%"></div></div><b>${v}</b></div>`;
   $('statsBody').innerHTML = `
