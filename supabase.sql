@@ -32,3 +32,7 @@ create policy "eigene Spiele anlegen" on games for insert with check (auth.uid()
 create policy "eigenen Fortschritt lesen" on progress for select using (auth.uid() = user_id);
 create policy "eigenen Fortschritt anlegen" on progress for insert with check (auth.uid() = user_id);
 create policy "eigenen Fortschritt ändern" on progress for update using (auth.uid() = user_id);
+
+-- Neuere Supabase-Projekte geben neuen Tabellen keine Rechte mehr automatisch.
+grant select, insert on games to authenticated;
+grant select, insert, update on progress to authenticated;
