@@ -100,7 +100,13 @@ export function levelPuzzle(lvl) {
   return makePuzzle(h % THEMES.length, levelSize(lvl), h);
 }
 
-export function randomPuzzle(size) {
+export function randomPuzzle(size, avoidTitle) {
+  for (let i = 0; i < 5; i++) { // anderes Thema als avoidTitle bevorzugen
+    const p = randomPuzzle0(size);
+    if (p.title !== avoidTitle || i === 4) return p;
+  }
+}
+function randomPuzzle0(size) {
   const seed = Math.floor(Math.random() * 2 ** 31);
   return makePuzzle(seed % THEMES.length, size, seed);
 }

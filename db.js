@@ -119,6 +119,10 @@ export function setProgress(patch) {
 }
 
 // Lokaler Spielstand des Tagesrätsels (nur dieses Gerät)
+// Angefangene Rätsel (Freies Spiel je Größe, Level); null löscht den Stand
+export const savedGame = key => load('game_' + key, null);
+export const saveGame = (key, s) => save('game_' + key, s);
+
 // daily5_: Tagesrätsel seit 420 Themen anders ausgewählt, alte Spielstände passen nicht mehr
 export const dailyState = date => load('daily5_' + date, null);
 export const setDailyState = (date, s) => save('daily5_' + date, s);

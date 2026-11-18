@@ -172,6 +172,7 @@ h3.sec { margin: 22px 4px 10px; font-size: 16px; }
   <div class="board-wrap" id="boardWrap"><div class="board" id="board"></div></div>
   <div class="words" id="words"></div>
   <p class="howto" id="howto"></p>
+  <button class="btn light" id="newGame" style="margin-top:20px" hidden>🔀 Neues Rätsel</button>
 </section>
 
 <section id="stats" class="screen">
@@ -219,7 +220,11 @@ function show(id) {
 document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => show(b.dataset.go));
 document.querySelectorAll('[data-start]').forEach(b => b.onclick = () => start(b.dataset.start));
 document.querySelectorAll('[data-size]').forEach(b => b.onclick = () => start('frei', +b.dataset.size));
-$('back').onclick = () => { stopTimer(); show('menu'); };
+$('back').onclick = () => { persist(); stopTimer(); show('menu'); };
+$('newGame').onclick = () => {
+  if (Object.keys(g.found).length && !confirm('Dieses Rätsel verwerfen und ein neues Thema starten?')) return;
+  start('frei', g.puzzle.size, true, g.puzzle.title);
+};
 
 function toast(text) {
   const t = $('toast'); t.textContent = text; t.classList.add('show');
@@ -256,21 +261,29 @@ function renderMenu() {
 }
 
 // ---------- Spielstart ----------
-function start(mode, size) {
+// fresh: angefangenes Rätsel verwerfen und ein neues Thema nehmen (avoid = bisheriges Thema)
+function start(mode, size, fresh, avoid) {
   stopTimer();
   const p = db.progress();
+  const key = mode === 'frei' ? 'frei' + size : mode === 'level' ? 'level' : null;
+  let saved = key && !fresh ? db.savedGame(key) : null;
+  if (mode === 'level' && saved?.level !== p.current_level) saved = null;
   let puzzle;
   if (mode === 'tag') puzzle = dailyPuzzle();
   else if (mode === 'level') puzzle = levelPuzzle(p.current_level);
   else if (mode === 'tutorial') puzzle = tutorialPuzzle();
-  else puzzle = randomPuzzle(mode === 'zeit' ? 5 : size);
-  g = { mode, puzzle, found: {}, hints: [], startedAt: Date.now(), score: 0, wordsTotal: 0, level: p.current_level, date: today() };
+  else if (mode === 'frei') puzzle = saved?.puzzle ?? randomPuzzle(size, avoid);
+  else puzzle = randomPuzzle(5);
+  g = { mode, key, puzzle, found: {}, hints: [], startedAt: Date.now(), score: 0, wordsTotal: 0, level: p.current_level, date: today() };
+  if (saved) Object.assign(g, { found: saved.found, hints: saved.hints, startedAt: Date.now() - saved.elapsed });
+  if (key && fresh) db.saveGame(key, null);
   if (mode === 'tag') {
     const s = db.dailyState(today());
     if (s) Object.assign(g, { found: s.found, hints: s.hints, startedAt: s.startedAt ?? g.startedAt });
   }
   if (mode === 'zeit') g.endsAt = Date.now() + TIME_LIMIT * 1000;
   timer = setInterval(tick, 250);
+  $('newGame').hidden = mode !== 'frei';
   show('game');
   draw();
   tick();
@@ -278,6 +291,13 @@ function start(mode, size) {
 }
 
 function stopTimer() { clearInterval(timer); timer = null; }
+
+// Angefangenes Freies Spiel / Level merken, damit es beim nächsten Öffnen weitergeht
+function persist() {
+  if (!g?.key || g.done) return;
+  db.saveGame(g.key, { puzzle: g.puzzle, level: g.level, found: g.found, hints: g.hints, elapsed: Date.now() - g.startedAt });
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) persist(); });
 
 const clock = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 function tick() {
@@ -383,6 +403,7 @@ function submit(path) {
     p.textContent = '';
     draw();
     if (g.mode === 'tag') db.setDailyState(g.date, { found: g.found, hints: g.hints, startedAt: g.startedAt, done: false });
+    persist();
     if (Object.keys(g.found).length === g.puzzle.words.length) setTimeout(solved, 350);
     return;
   }
@@ -400,6 +421,7 @@ $('hint').onclick = () => {
   if (i === undefined) return;
   g.hints.push(i);
   if (g.mode === 'tag') db.setDailyState(g.date, { found: g.found, hints: g.hints, startedAt: g.startedAt, done: false });
+  persist();
   draw();
 };
 
@@ -431,6 +453,7 @@ function solved() {
     return;
   }
   record();
+  if (g.key) { g.done = true; db.saveGame(g.key, null); }
   if (g.mode === 'tag') {
     db.setDailyState(g.date, { found: g.found, hints: g.hints, startedAt: g.startedAt, done: true });
     const p = db.progress();
@@ -446,7 +469,7 @@ function solved() {
   } else {
     const n = g.puzzle.size;
     dialog('Geschafft!', `<p>Zeit ${time} · Hinweise ${g.hints.length}</p>`,
-      [['Neues Rätsel', () => start('frei', n)], ['Menü', () => show('menu'), true]]);
+      [['Neues Rätsel', () => start('frei', n, true, g.puzzle.title)], ['Menü', () => show('menu'), true]]);
   }
 }
 
