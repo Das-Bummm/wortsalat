@@ -60,8 +60,28 @@ button { font: inherit; }
 .mode span { color: var(--muted); font-size: 13px; font-weight: 500; }
 .sizes { display: flex; gap: 8px; margin-top: 10px; }
 .sizes button { flex: 1; border: 0; border-radius: 999px; padding: 7px 0; background: var(--accent); color: var(--accent-ink); font-weight: 700; cursor: pointer; }
-.menu-foot { display: flex; gap: 12px; margin-top: auto; padding-top: 12px; }
-.menu-foot .btn { flex: 1; }
+.menu-foot { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: auto; padding-top: 12px; }
+.menu-foot .btn[hidden] { display: none; }
+
+/* Rangliste & Admin */
+.tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 8px; }
+.tabs button { flex: none; border: 0; border-radius: 999px; padding: 7px 14px; background: var(--card); color: var(--text); font-weight: 600; cursor: pointer; }
+.tabs button.on { background: var(--accent); color: var(--accent-ink); }
+.rank { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--tile); margin-bottom: 4px; font-weight: 600; }
+.rank .pos { width: 28px; color: var(--muted); }
+.rank .name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.rank .val { font-weight: 800; }
+.rank.me { background: var(--accent); color: var(--accent-ink); }
+.rank.me .pos { color: inherit; }
+.urow { width: 100%; text-align: left; border: 0; display: block; padding: 12px 14px; background: var(--tile); color: var(--text); margin-bottom: 4px; cursor: pointer; font: inherit; }
+.urow b { font-size: 16px; } .urow small { display: block; color: var(--muted); margin-top: 3px; }
+.badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); margin-left: 6px; vertical-align: middle; }
+.badge.red { background: var(--danger); }
+.edit { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; text-align: left; }
+.edit label { font-size: 12px; color: var(--muted); font-weight: 600; display: flex; flex-direction: column; gap: 3px; }
+.edit label.full { grid-column: 1 / -1; }
+.edit label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--text); font-size: 15px; }
+.edit input[type=text], .edit input[type=number] { font: inherit; font-size: 16px; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--text); -webkit-user-select: text; user-select: text; width: 100%; }
 
 /* Spiel */
 .info { display: flex; justify-content: space-between; color: var(--muted); font-weight: 600; margin: 2px 4px 8px; }
@@ -125,6 +145,8 @@ h3.sec { margin: 22px 4px 10px; font-size: 16px; }
   <div class="menu-foot">
     <button class="btn light" data-go="stats">📊 Statistik</button>
     <button class="btn light" data-go="account" id="accountBtn">👤 Konto</button>
+    <button class="btn light" data-go="ranking">🏅 Rangliste</button>
+    <button class="btn light" data-go="admin" id="adminBtn" hidden>🛠️ Admin</button>
   </div>
 </section>
 
@@ -150,6 +172,17 @@ h3.sec { margin: 22px 4px 10px; font-size: 16px; }
   <div id="accountBody"></div>
 </section>
 
+<section id="ranking" class="screen">
+  <div class="bar"><button class="icon-btn" data-go="menu" aria-label="Zurück">←</button><h2>Rangliste</h2><button class="icon-btn" id="rankReload" aria-label="Neu laden">↻</button></div>
+  <div class="tabs" id="rankTabs"></div>
+  <div id="rankBody"></div>
+</section>
+
+<section id="admin" class="screen">
+  <div class="bar"><button class="icon-btn" data-go="menu" aria-label="Zurück">←</button><h2>Admin</h2><button class="icon-btn" id="adminReload" aria-label="Neu laden">↻</button></div>
+  <div id="adminBody"></div>
+</section>
+
 <dialog id="dlg"><h3 id="dlgTitle"></h3><div id="dlgBody"></div><div class="actions" id="dlgActions"></div></dialog>
 <div class="toast" id="toast"></div>
 
@@ -168,6 +201,8 @@ function show(id) {
   if (id === 'menu') renderMenu();
   if (id === 'stats') renderStats();
   if (id === 'account') renderAccount();
+  if (id === 'ranking') renderRanking();
+  if (id === 'admin') renderAdmin();
 }
 document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => show(b.dataset.go));
 document.querySelectorAll('[data-start]').forEach(b => b.onclick = () => start(b.dataset.start));
@@ -203,7 +238,9 @@ function renderMenu() {
   $('timedInfo').textContent = `${TIME_LIMIT} Sekunden · Rekord ${p.timed_highscore}`;
   $('levelInfo').textContent = `Weiter mit Level ${p.current_level}`;
   const u = db.getUser();
-  $('accountBtn').textContent = u ? '👤 ' + u.email.split('@')[0] : '👤 Anmelden';
+  const prof = db.getProfile();
+  $('accountBtn').textContent = u ? '👤 ' + (prof?.username ?? u.email.split('@')[0]) : '👤 Anmelden';
+  $('adminBtn').hidden = !prof?.is_admin;
 }
 
 // ---------- Spielstart ----------
@@ -424,13 +461,16 @@ function renderAccount() {
   }
   const u = db.getUser();
   if (u) {
-    body.innerHTML = `<div class="form"><b>Angemeldet als</b><span>${u.email.replace(/</g, '&lt;')}</span><p class="msg">Fortschritt und Statistik werden automatisch synchronisiert.</p><button class="btn light" id="logout">Abmelden</button></div>`;
-    $('logout').onclick = async () => { await db.signOut(); renderAccount(); };
+    const prof = db.getProfile();
+    body.innerHTML = `<div class="form"><b>Angemeldet als</b><span>${esc(prof?.username ?? u.email)}${prof?.is_admin ? '<span class="badge">Admin</span>' : ''}</span>
+      ${prof?.banned ? '<p class="msg err">Dein Konto ist gesperrt. Neue Ergebnisse werden nicht gespeichert.</p>' : '<p class="msg">Fortschritt und Statistik werden automatisch synchronisiert.</p>'}
+      <button class="btn light" id="logout">Abmelden</button></div>`;
+    $('logout').onclick = async () => { await db.signOut(); renderAccount(); renderMenu(); };
     return;
   }
   body.innerHTML = `<form class="form" id="loginForm">
       <b>Anmelden oder Konto erstellen</b>
-      <input id="email" type="email" placeholder="E-Mail" autocomplete="username" required>
+      <input id="email" type="text" placeholder="Benutzername" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required>
       <input id="pw" type="password" placeholder="Passwort (mind. 6 Zeichen)" autocomplete="current-password" minlength="6" required>
       <div class="row"><button class="btn" value="in">Anmelden</button><button class="btn light" value="up">Registrieren</button></div>
       <p class="msg" id="msg"></p>
@@ -441,12 +481,85 @@ function renderAccount() {
     try {
       const info = e.submitter.value === 'up' ? await db.signUp($('email').value, $('pw').value) : await db.signIn($('email').value, $('pw').value);
       if (info) { msg.textContent = info; return; }
-      renderAccount();
+      renderAccount(); renderMenu();
     } catch (err) {
       msg.className = 'msg err';
-      msg.textContent = err.message === 'Invalid login credentials' ? 'E-Mail oder Passwort falsch.' : err.message;
+      msg.textContent = err.message === 'Invalid login credentials' ? 'Benutzername oder Passwort falsch.' : err.message;
     }
   };
+}
+
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+const needLogin = el => {
+  if (db.getUser()) return false;
+  el.innerHTML = `<div class="form"><b>Bitte anmelden</b><p class="msg">Die Rangliste gibt es nur mit Konto.</p><button class="btn" id="goLogin">Zum Konto</button></div>`;
+  $('goLogin').onclick = () => show('account');
+  return true;
+};
+
+// ---------- Rangliste ----------
+const RANKS = [['level', 'Level'], ['timed_highscore', 'Zeit-Rekord'], ['streak', 'Serie 🔥'], ['best_streak', 'Beste Serie'], ['words', 'Wörter'], ['games', 'Spiele']];
+let rankBy = 'level', rankData = null;
+async function renderRanking(reload) {
+  const body = $('rankBody');
+  $('rankTabs').innerHTML = RANKS.map(([k, l]) => `<button data-k="${k}" class="${k === rankBy ? 'on' : ''}">${l}</button>`).join('');
+  $('rankTabs').querySelectorAll('button').forEach(b => b.onclick = () => { rankBy = b.dataset.k; renderRanking(); });
+  if (needLogin(body)) return;
+  if (!rankData || reload) {
+    body.innerHTML = '<p class="msg">Lädt…</p>';
+    await db.sync();
+    try { rankData = await db.leaderboard(); } catch (e) { body.innerHTML = `<p class="msg err">Rangliste nicht erreichbar: ${esc(e.message)}</p>`; return; }
+  }
+  const me = db.getUser().id;
+  const sorted = [...rankData].sort((a, b) => b[rankBy] - a[rankBy] || a.username.localeCompare(b.username));
+  let pos = 0, last = null;
+  body.innerHTML = sorted.map((r, i) => {
+    if (r[rankBy] !== last) { pos = i + 1; last = r[rankBy]; }
+    const medal = ['🥇', '🥈', '🥉'][pos - 1] ?? pos + '.';
+    return `<div class="rank${r.id === me ? ' me' : ''}"><span class="pos">${medal}</span><span class="name">${esc(r.username)}</span><span class="val">${r[rankBy]}</span></div>`;
+  }).join('') || '<p class="msg">Noch keine Spieler.</p>';
+}
+$('rankReload').onclick = () => renderRanking(true);
+
+// ---------- Admin ----------
+let adminData = [];
+async function renderAdmin() {
+  const body = $('adminBody');
+  if (!db.getProfile()?.is_admin) { body.innerHTML = '<p class="msg">Nur für Admins.</p>'; return; }
+  body.innerHTML = '<p class="msg">Lädt…</p>';
+  try { adminData = await db.adminOverview(); } catch (e) { body.innerHTML = `<p class="msg err">${esc(e.message)}</p>`; return; }
+  const ago = d => d ? new Date(d).toLocaleDateString('de') : '–';
+  body.innerHTML = `<p class="msg" style="margin:0 4px 10px">${adminData.length} Konten · antippen zum Bearbeiten</p>` + adminData.map((u, i) => `
+    <button class="urow" data-i="${i}"><b>${esc(u.username)}</b>${u.is_admin ? '<span class="badge">Admin</span>' : ''}${u.banned ? '<span class="badge red">Gesperrt</span>' : ''}
+      <small>Level ${u.current_level} · Serie ${u.daily_streak} (beste ${u.best_streak}) · Zeit-Rekord ${u.timed_highscore}</small>
+      <small>${u.games} Spiele · ${u.words} Wörter · seit ${ago(u.created_at)} · zuletzt ${ago(u.last_sign_in_at)}${u.email.endsWith('@wortsalat.invalid') ? '' : ' · ' + esc(u.email)}</small>
+    </button>`).join('');
+  body.querySelectorAll('.urow').forEach(b => b.onclick = () => editUser(adminData[b.dataset.i]));
+}
+$('adminReload').onclick = renderAdmin;
+
+function editUser(u) {
+  const self = u.id === db.getUser().id;
+  const num = (k, l) => `<label>${l}<input type="number" min="0" id="e_${k}" value="${u[k]}"></label>`;
+  const run = fn => async () => { try { if (await fn() !== false) toast('Erledigt'); } catch (e) { alert('Fehler: ' + e.message); } renderAdmin(); };
+  dialog(u.username, `<div class="edit">
+      <label class="full">Benutzername<input type="text" id="e_username" value="${esc(u.username)}" autocapitalize="none"></label>
+      ${num('current_level', 'Level')}${num('timed_highscore', 'Zeit-Rekord')}${num('daily_streak', 'Serie')}${num('best_streak', 'Beste Serie')}
+      <label class="check full"><input type="checkbox" id="e_admin" ${u.is_admin ? 'checked' : ''} ${self ? 'disabled' : ''}> Admin</label>
+      <label class="check full"><input type="checkbox" id="e_banned" ${u.banned ? 'checked' : ''} ${self ? 'disabled' : ''}> Gesperrt (nicht in der Rangliste, speichert nichts mehr)</label>
+    </div>`, [
+    ['Speichern', run(() => {
+      const name = $('e_username').value.trim();
+      if (!db.USERNAME_RE.test(name)) throw new Error('Benutzername: 3–20 Zeichen, nur Buchstaben, Zahlen und _.');
+      const n = k => Math.max(0, parseInt($('e_' + k).value, 10) || 0);
+      return db.adminSaveUser(u.id,
+        { username: name, is_admin: self ? true : $('e_admin').checked, banned: self ? false : $('e_banned').checked },
+        { current_level: Math.max(1, n('current_level')), timed_highscore: n('timed_highscore'), daily_streak: n('daily_streak'), best_streak: n('best_streak') });
+    })],
+    ['Spielverlauf löschen', run(() => confirm(`Alle ${u.games} Spiele von ${u.username} löschen?`) && db.adminClearGames(u.id)), true],
+    ...(self ? [] : [['Konto löschen', run(() => confirm(`Konto ${u.username} endgültig löschen? Das kann nicht rückgängig gemacht werden.`) && db.adminDeleteUser(u.id)), true]]),
+    ['Abbrechen', () => {}, true],
+  ]);
 }
 
 // ---------- Start ----------

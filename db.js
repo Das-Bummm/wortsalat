@@ -3,6 +3,11 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 export const online = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 let sb = null;
 let user = null;
+let profile = null; // { username, is_admin, banned }
+
+export const USERNAME_RE = /^[A-Za-z0-9_]{3,20}$/;
+// Supabase braucht eine E-Mail: Benutzernamen bekommen eine nie zustellbare Platzhalter-Adresse (.invalid ist reserviert)
+const toEmail = name => (name.includes('@') ? name.trim() : `${name.trim().toLowerCase()}@wortsalat.invalid`);
 
 const DEFAULT_PROGRESS = { current_level: 1, daily_streak: 0, best_streak: 0, timed_highscore: 0, last_daily: null };
 
@@ -11,6 +16,7 @@ const load = (name, fallback) => { try { return JSON.parse(localStorage.getItem(
 const save = (name, val) => { try { localStorage.setItem(key(name), JSON.stringify(val)); } catch {} };
 
 export const getUser = () => user;
+export const getProfile = () => profile;
 export const games = () => load('games', []);
 export const progress = () => ({ ...DEFAULT_PROGRESS, ...load('progress', {}) });
 
@@ -24,15 +30,17 @@ export async function init() {
   addEventListener('online', sync);
 }
 
-export async function signUp(email, password) {
-  const { data, error } = await sb.auth.signUp({ email, password });
-  if (error) throw error;
-  if (!data.session) return 'Bitte bestätige die E-Mail, dann anmelden.';
+export async function signUp(username, password) {
+  username = username.trim();
+  if (!USERNAME_RE.test(username)) throw new Error('Benutzername: 3–20 Zeichen, nur Buchstaben, Zahlen und _.');
+  const { data, error } = await sb.auth.signUp({ email: toEmail(username), password, options: { data: { username } } });
+  if (error) throw new Error(/already registered/i.test(error.message) ? 'Dieser Benutzername ist schon vergeben.' : error.message);
+  if (!data.session) return 'Konto angelegt. Bitte jetzt anmelden.';
   await afterLogin(data.user);
 }
 
-export async function signIn(email, password) {
-  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+export async function signIn(name, password) {
+  const { data, error } = await sb.auth.signInWithPassword({ email: toEmail(name), password });
   if (error) throw error;
   await afterLogin(data.user);
 }
@@ -40,6 +48,7 @@ export async function signIn(email, password) {
 export async function signOut() {
   await sb.auth.signOut();
   user = null;
+  profile = null;
 }
 
 async function afterLogin(u) {
@@ -75,16 +84,22 @@ export async function sync() {
       if (error) throw error;
       save('queue', load('queue', []).filter(g => !queue.some(q => q.id === g.id)));
     }
-    const [g, p] = await Promise.all([
-      sb.from('games').select('*').order('played_at', { ascending: false }), // neueste zuerst: API liefert max. 1000 Zeilen
-      sb.from('progress').select('*').maybeSingle(),
+    // eq(user_id): Admins dürfen alle Zeilen lesen, hier zählen nur die eigenen
+    const [g, p, pf] = await Promise.all([
+      sb.from('games').select('*').eq('user_id', user.id).order('played_at', { ascending: false }), // neueste zuerst: API liefert max. 1000 Zeilen
+      sb.from('progress').select('*').eq('user_id', user.id).maybeSingle(),
+      sb.from('profiles').select('username, is_admin, banned').eq('id', user.id).maybeSingle(),
     ]);
     if (g.error) throw g.error;
     if (p.error) throw p.error;
-    save('games', mergeGames(load('games', []), g.data));
-    const merged = mergeProgress(progress(), { ...DEFAULT_PROGRESS, ...(p.data ?? {}) });
+    if (!pf.error) profile = pf.data;
+    const server = { ...DEFAULT_PROGRESS, ...(p.data ?? {}) };
+    // Hat ein Admin die Werte geändert, gilt der Server-Stand statt des Gerätestands
+    const override = p.data?.admin_override;
+    save('games', override ? mergeGames(g.data, load('queue', [])) : mergeGames(load('games', []), g.data));
+    const merged = override ? mergeProgress(server, server) : mergeProgress(progress(), server);
     save('progress', merged);
-    const up = await sb.from('progress').upsert({ ...merged, user_id: user.id, updated_at: new Date().toISOString() });
+    const up = await sb.from('progress').upsert({ ...merged, user_id: user.id, admin_override: false, updated_at: new Date().toISOString() });
     if (up.error) throw up.error;
   } catch (e) {
     console.warn('Sync fehlgeschlagen, wird später wiederholt', e);
@@ -106,3 +121,23 @@ export function setProgress(patch) {
 // Lokaler Spielstand des Tagesrätsels (nur dieses Gerät)
 export const dailyState = date => load('daily_' + date, null);
 export const setDailyState = (date, s) => save('daily_' + date, s);
+
+// ---------- Rangliste & Admin ----------
+const rows = async q => { const { data, error } = await q; if (error) throw error; return data; };
+
+export const leaderboard = () => rows(sb.from('leaderboard').select('*'));
+export const adminOverview = () => rows(sb.from('admin_overview').select('*').order('created_at'));
+
+export async function adminSaveUser(id, prof, prog) {
+  await rows(sb.from('profiles').update(prof).eq('id', id));
+  await rows(sb.from('progress').upsert({ user_id: id, ...prog, admin_override: true, updated_at: new Date().toISOString() }));
+  if (id === user.id) { save('progress', { ...progress(), ...prog }); await sync(); }
+}
+
+export async function adminClearGames(id) {
+  await rows(sb.from('games').delete().eq('user_id', id));
+  await rows(sb.from('progress').upsert({ user_id: id, admin_override: true, updated_at: new Date().toISOString() }));
+  if (id === user.id) { save('games', []); save('queue', []); }
+}
+
+export const adminDeleteUser = id => rows(sb.rpc('admin_delete_user', { target: id }));
