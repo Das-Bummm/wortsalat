@@ -88,8 +88,32 @@ const hase = `
   </g>
 </svg>`;
 
+// Carl: schwarze Katze, grüne Augen, Stummelschwanz, weißer Fleck an der hinteren Hüfte
+const carl = `
+<svg viewBox="0 0 64 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <g class="tail"><path d="M13.5 22.5 L9.5 19" fill="none" stroke="#5a5a62" stroke-width="6.7" stroke-linecap="round"/><path d="M13.5 22.5 L9.5 19" fill="none" stroke="#232326" stroke-width="5.5" stroke-linecap="round"/></g>
+  <g class="leg back a"><rect x="17" y="28" width="5" height="13" rx="2.5" fill="#18181a" stroke="#5a5a62" stroke-width=".6"/></g>
+  <g class="leg front b"><rect x="40" y="28" width="5" height="13" rx="2.5" fill="#18181a" stroke="#5a5a62" stroke-width=".6"/></g>
+  <ellipse cx="30" cy="26" rx="18" ry="9" fill="#232326" stroke="#5a5a62" stroke-width=".6"/>
+  <ellipse cx="20" cy="23.5" rx="4.2" ry="3.2" fill="#f4f1ea" transform="rotate(-15 20 23.5)"/>
+  <g class="leg back b"><rect x="23" y="28" width="5" height="13" rx="2.5" fill="#232326" stroke="#5a5a62" stroke-width=".6"/></g>
+  <g class="leg front a"><rect x="45" y="28" width="5" height="13" rx="2.5" fill="#232326" stroke="#5a5a62" stroke-width=".6"/></g>
+  <g class="head">
+    <path d="M43 13 L45 3 L50 11 Z" fill="#232326" stroke="#5a5a62" stroke-width=".6" stroke-linejoin="round"/>
+    <path d="M51 10 L56 2 L57 12 Z" fill="#232326" stroke="#5a5a62" stroke-width=".6" stroke-linejoin="round"/>
+    <path d="M45.2 10.5 L45.8 6 L48 10 Z" fill="#c9898f"/>
+    <path d="M53 9.5 L55.5 5.5 L55.8 10.5 Z" fill="#c9898f"/>
+    <circle cx="50" cy="17" r="8.5" fill="#232326" stroke="#5a5a62" stroke-width=".6"/>
+    <g class="eyes"><ellipse cx="52.5" cy="16.5" rx="2" ry="1.7" fill="#6fd16a"/><ellipse cx="53" cy="16.5" rx=".5" ry="1.3" fill="#0d0d0d"/></g>
+    <path class="closed" d="M50.8 16.8 Q52.5 18 54.2 16.8" fill="none" stroke="#6fd16a" stroke-width=".8" stroke-linecap="round"/>
+    <path d="M56.8 19.6 L58.4 19.6 L57.6 20.6 Z" fill="#c9898f"/>
+    <path d="M58 22 L63 21 M58 23 L63 24" stroke="#8a8a90" stroke-width=".5"/>
+  </g>
+</svg>`;
+
 export const PETS = [
-  { id: 'siam', name: 'Siamkatze', svg: siam },
+  { id: 'siam', name: 'Albert', art: 'Siamkatze', svg: siam },
+  { id: 'carl', name: 'Carl', art: 'Schwarze Katze', svg: carl },
   { id: 'hund', name: 'Hund', svg: hund },
   { id: 'kuh', name: 'Kuh', svg: kuh },
   { id: 'hase', name: 'Hase', svg: hase },

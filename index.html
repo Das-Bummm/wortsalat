@@ -890,7 +890,7 @@ const myPet = () => { try { return localStorage.getItem('ws_pet') || 'none'; } c
 function renderPets() {
   const cur = myPet();
   $('petGrid').innerHTML = PETS.map(p => `<button class="petcard${p.id === cur ? ' on' : ''}" data-pet="${p.id}" ${p.soon ? 'disabled' : ''}>
-      ${p.soon ? `<span class="soon">${SOON_EMOJI[p.id] ?? '🐾'}</span>` : p.svg}${p.name}<small>${p.soon ? 'kommt bald' : p.id === cur ? 'ausgewählt' : 'auswählen'}</small></button>`).join('')
+      ${p.soon ? `<span class="soon">${SOON_EMOJI[p.id] ?? '🐾'}</span>` : p.svg}${p.name}<small>${p.art ? p.art + ' · ' : ''}${p.soon ? 'kommt bald' : p.id === cur ? 'ausgewählt' : 'auswählen'}</small></button>`).join('')
     + `<button class="petcard${cur === 'none' ? ' on' : ''}" data-pet="none"><span class="soon">🚫</span>Kein Haustier<small>${cur === 'none' ? 'ausgewählt' : 'auswählen'}</small></button>`;
   $('petGrid').querySelectorAll('[data-pet]:not(:disabled)').forEach(b => b.onclick = () => {
     try { localStorage.setItem('ws_pet', b.dataset.pet); } catch {}
