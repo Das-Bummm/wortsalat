@@ -148,6 +148,29 @@ export async function adminClearGames(id) {
   if (id === user.id) { save('games', []); save('queue', []); }
 }
 
+export async function changeUsername(name) {
+  name = name.trim();
+  if (!USERNAME_RE.test(name)) throw new Error('Benutzername: 3–20 Zeichen, nur Buchstaben, Zahlen und _.');
+  await rows(sb.rpc('change_username', { new_name: name }));
+  await sb.auth.refreshSession(); // neue Login-Adresse ins Token übernehmen
+  user = (await sb.auth.getUser()).data.user ?? user;
+  profile = { ...profile, username: name };
+}
+
+export async function changePassword(current, next) {
+  if (next.length < 6) throw new Error('Das neue Passwort braucht mindestens 6 Zeichen.');
+  // Aktuelles Passwort prüfen, bevor es geändert wird
+  const { error } = await sb.auth.signInWithPassword({ email: user.email, password: current });
+  if (error) throw new Error('Das aktuelle Passwort stimmt nicht.');
+  const up = await sb.auth.updateUser({ password: next });
+  if (up.error) throw new Error(/different/i.test(up.error.message) ? 'Das neue Passwort muss anders sein als das alte.' : up.error.message);
+}
+
+export const requestPasswordReset = (name, note) => rows(sb.rpc('request_password_reset', { name, note }));
+export const adminPwRequests = () => rows(sb.from('pw_requests').select('*').order('created_at'));
+export const adminSetPassword = (id, pw) => rows(sb.rpc('admin_set_password', { target: id, pw }));
+export const adminDropPwRequest = id => rows(sb.from('pw_requests').delete().eq('user_id', id));
+
 export const adminDeleteUser = id => rows(sb.rpc('admin_delete_user', { target: id }));
 
 // ---------- Mitteilungen ----------

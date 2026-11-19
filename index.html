@@ -209,6 +209,10 @@ h3.sec { margin: 22px 4px 10px; font-size: 16px; }
 .form .row { display: flex; gap: 10px; } .form .row .btn { flex: 1; }
 .msg { color: var(--muted); min-height: 1.2em; margin: 0; }
 .msg.err { color: var(--danger); }
+.msg.ok { color: var(--accent); }
+.form + .form { margin-top: 12px; }
+.link { border: 0; background: none; padding: 0; color: var(--accent); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; align-self: flex-start; }
+.dlg-in { width: 100%; font: inherit; font-size: 16px; padding: 10px; margin-top: 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); -webkit-user-select: text; user-select: text; }
 </style>
 </head>
 <body>
@@ -647,8 +651,34 @@ function renderAccount() {
     const prof = db.getProfile();
     body.innerHTML = `<div class="form"><b>Angemeldet als</b><span>${esc(prof?.username ?? u.email)}${prof?.is_admin ? '<span class="badge">Admin</span>' : ''}</span>
       ${prof?.banned ? '<p class="msg err">Dein Konto ist gesperrt. Neue Ergebnisse werden nicht gespeichert.</p>' : '<p class="msg">Fortschritt und Statistik werden automatisch synchronisiert.</p>'}
-      <button class="btn light" id="logout">Abmelden</button></div>`;
+      <button class="btn light" id="logout">Abmelden</button></div>
+      <form class="form" id="nameForm"><b>Benutzername ändern</b>
+        <input id="newName" type="text" value="${esc(prof?.username ?? '')}" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required>
+        <button class="btn light">Namen speichern</button><p class="msg" id="nameMsg"></p></form>
+      <form class="form" id="pwForm"><b>Passwort ändern</b>
+        <input id="pwOld" type="password" placeholder="Aktuelles Passwort" autocomplete="current-password" required>
+        <input id="pwNew" type="password" placeholder="Neues Passwort (mind. 6 Zeichen)" autocomplete="new-password" minlength="6" required>
+        <input id="pwNew2" type="password" placeholder="Neues Passwort wiederholen" autocomplete="new-password" minlength="6" required>
+        <button class="btn light">Passwort ändern</button><p class="msg" id="pwMsg"></p>
+        <button type="button" class="link" id="forgot">Aktuelles Passwort vergessen?</button></form>`;
     $('logout').onclick = async () => { await db.signOut(); renderAccount(); renderMenu(); };
+    const busy = async (msgId, fn, okText) => {
+      const m = $(msgId); m.className = 'msg'; m.textContent = 'Einen Moment…';
+      try { await fn(); m.className = 'msg ok'; m.textContent = okText; return true; }
+      catch (err) { m.className = 'msg err'; m.textContent = err.message; return false; }
+    };
+    $('nameForm').onsubmit = async e => {
+      e.preventDefault();
+      if (await busy('nameMsg', () => db.changeUsername($('newName').value), 'Gespeichert. Melde dich ab jetzt mit dem neuen Namen an.')) renderMenu();
+    };
+    $('pwForm').onsubmit = async e => {
+      e.preventDefault();
+      if (await busy('pwMsg', () => {
+        if ($('pwNew').value !== $('pwNew2').value) throw new Error('Die neuen Passwörter stimmen nicht überein.');
+        return db.changePassword($('pwOld').value, $('pwNew').value);
+      }, 'Passwort geändert.')) $('pwForm').querySelectorAll('input').forEach(i => i.value = '');
+    };
+    $('forgot').onclick = () => forgotPassword(prof?.username);
     return;
   }
   body.innerHTML = `<form class="form" id="loginForm">
@@ -657,7 +687,9 @@ function renderAccount() {
       <input id="pw" type="password" placeholder="Passwort (mind. 6 Zeichen)" autocomplete="current-password" minlength="6" required>
       <div class="row"><button class="btn" value="in">Anmelden</button><button class="btn light" value="up">Registrieren</button></div>
       <p class="msg" id="msg"></p>
+      <button type="button" class="link" id="forgot">Passwort vergessen?</button>
     </form>`;
+  $('forgot').onclick = () => forgotPassword($('email').value);
   $('loginForm').onsubmit = async e => {
     e.preventDefault();
     const msg = $('msg'); msg.className = 'msg'; msg.textContent = 'Einen Moment…';
@@ -670,6 +702,23 @@ function renderAccount() {
       msg.textContent = err.message === 'Invalid login credentials' ? 'Benutzername oder Passwort falsch.' : err.message;
     }
   };
+}
+
+// Passwort vergessen: Anfrage an den Admin, der ein neues Passwort setzt
+function forgotPassword(name = '') {
+  dialog('Passwort vergessen?', `<p>Der Admin kann dir ein neues Passwort geben. Schick ihm eine Anfrage:</p>
+    <input class="dlg-in" id="fName" type="text" placeholder="Dein Benutzername" value="${esc(name)}" autocapitalize="none" autocorrect="off" spellcheck="false">
+    <input class="dlg-in" id="fNote" type="text" maxlength="300" placeholder="Wie erreicht dich der Admin?">`, [
+    ['Anfrage senden', async () => {
+      const n = $('fName').value.trim(), note = $('fNote').value.trim();
+      if (!n) return toast('Bitte Benutzernamen eingeben');
+      try {
+        await db.requestPasswordReset(n, note);
+        dialog('Anfrage gesendet', '<p>Der Admin setzt dir ein neues Passwort und gibt es dir weiter. Danach kannst du es unter Konto selbst ändern.</p>', [['OK', () => {}]]);
+      } catch (e) { toast('Hat nicht geklappt'); console.warn(e); }
+    }],
+    ['Abbrechen', () => {}, true],
+  ]);
 }
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
@@ -710,14 +759,39 @@ async function renderAdmin() {
   const body = $('adminBody');
   if (!db.getProfile()?.is_admin) { body.innerHTML = '<p class="msg">Nur für Admins.</p>'; return; }
   body.innerHTML = '<p class="msg">Lädt…</p>';
-  try { adminData = await db.adminOverview(); } catch (e) { body.innerHTML = `<p class="msg err">${esc(e.message)}</p>`; return; }
+  let reqs = [];
+  try {
+    [adminData, reqs] = await Promise.all([db.adminOverview(), db.adminPwRequests().catch(() => [])]);
+  } catch (e) { body.innerHTML = `<p class="msg err">${esc(e.message)}</p>`; return; }
   const ago = d => d ? new Date(d).toLocaleDateString('de') : '–';
-  body.innerHTML = `<p class="msg" style="margin:0 4px 10px">${adminData.length} Konten · antippen zum Bearbeiten</p>` + adminData.map((u, i) => `
+  const byId = Object.fromEntries(adminData.map(u => [u.id, u]));
+  reqs = reqs.filter(r => byId[r.user_id]);
+  body.innerHTML = (reqs.length ? `<h3 class="sec" style="margin-top:4px">🔑 Passwort-Anfragen</h3>` + reqs.map((r, i) => `
+    <button class="urow" data-r="${i}"><b>${esc(byId[r.user_id].username)}</b><span class="badge red">neu</span>
+      <small>${r.note ? esc(r.note) + ' · ' : ''}${ago(r.created_at)}</small></button>`).join('') + '<h3 class="sec">Konten</h3>' : '')
+    + `<p class="msg" style="margin:0 4px 10px">${adminData.length} Konten · antippen zum Bearbeiten</p>` + adminData.map((u, i) => `
     <button class="urow" data-i="${i}"><b>${esc(u.username)}</b>${u.is_admin ? '<span class="badge">Admin</span>' : ''}${u.banned ? '<span class="badge red">Gesperrt</span>' : ''}
       <small>Level ${u.current_level} · Serie ${u.daily_streak} (beste ${u.best_streak}) · Zeit-Rekord ${u.timed_highscore}</small>
       <small>${u.games} Spiele · ${u.words} Wörter · seit ${ago(u.created_at)} · zuletzt ${ago(u.last_sign_in_at)}${u.email.endsWith('@wortsalat.invalid') ? '' : ' · ' + esc(u.email)}</small>
     </button>`).join('');
-  body.querySelectorAll('.urow').forEach(b => b.onclick = () => editUser(adminData[b.dataset.i]));
+  body.querySelectorAll('[data-i]').forEach(b => b.onclick = () => editUser(adminData[b.dataset.i]));
+  body.querySelectorAll('[data-r]').forEach(b => b.onclick = () => setPassword(byId[reqs[b.dataset.r].user_id], reqs[b.dataset.r]));
+}
+
+function setPassword(u, req) {
+  dialog(`Passwort für ${u.username}`, `${req?.note ? `<p>Nachricht: „${esc(req.note)}“</p>` : ''}
+    <p>Neues Passwort festlegen und dem Spieler weitergeben. Er kann es danach unter Konto selbst ändern.</p>
+    <input class="dlg-in" id="setPw" type="text" minlength="6" placeholder="Neues Passwort (mind. 6 Zeichen)" autocapitalize="none" autocorrect="off" spellcheck="false">`, [
+    ['Passwort setzen', async () => {
+      const pw = $('setPw').value;
+      try {
+        await db.adminSetPassword(u.id, pw);
+        dialog('Passwort gesetzt', `<p>Gib ${esc(u.username)} das neue Passwort weiter:</p><p style="font-size:20px;font-weight:800;-webkit-user-select:text;user-select:text">${esc(pw)}</p>`, [['OK', renderAdmin]]);
+      } catch (e) { alert('Fehler: ' + e.message); }
+    }],
+    ...(req ? [['Anfrage löschen', async () => { try { await db.adminDropPwRequest(u.id); } catch (e) { alert('Fehler: ' + e.message); } renderAdmin(); }, true]] : []),
+    ['Abbrechen', () => {}, true],
+  ]);
 }
 $('adminReload').onclick = renderAdmin;
 
@@ -739,6 +813,7 @@ function editUser(u) {
         { username: name, is_admin: self ? true : $('e_admin').checked, banned: self ? false : $('e_banned').checked },
         { current_level: Math.max(1, n('current_level')), timed_highscore: n('timed_highscore'), daily_streak: n('daily_streak'), best_streak: n('best_streak') });
     })],
+    ['Passwort setzen', () => setPassword(u), true],
     ['Spielverlauf löschen', run(() => confirm(`Alle ${u.games} Spiele von ${u.username} löschen?`) && db.adminClearGames(u.id)), true],
     ...(self ? [] : [['Konto löschen', run(() => confirm(`Konto ${u.username} endgültig löschen? Das kann nicht rückgängig gemacht werden.`) && db.adminDeleteUser(u.id)), true]]),
     ['Abbrechen', () => {}, true],
