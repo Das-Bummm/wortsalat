@@ -229,7 +229,10 @@ h3.sec { margin: 22px 4px 10px; font-size: 16px; }
     <div style="display:flex;gap:14px;align-items:center"><span class="ico">🎲</span><div><b>Freies Spiel</b><span>Größe wählen</span></div></div>
     <div class="sizes"><button data-size="4">4×4</button><button data-size="5">5×5</button><button data-size="6">6×6</button></div>
   </div>
-  <button class="mode" data-start="zeit"><span class="ico">⏱️</span><div><b>Zeitmodus</b><span id="timedInfo"></span></div></button>
+  <div class="mode" style="display:block;cursor:default">
+    <div style="display:flex;gap:14px;align-items:center"><span class="ico">⏱️</span><div><b>Zeitmodus</b><span id="timedInfo"></span></div></div>
+    <div class="sizes"><button data-zeit="4">4×4</button><button data-zeit="5">5×5</button><button data-zeit="6">6×6</button></div>
+  </div>
   <button class="mode" data-start="level"><span class="ico">🏆</span><div><b>Level-Modus</b><span id="levelInfo"></span></div></button>
   <div class="menu-foot">
     <button class="btn light" data-go="stats">📊 Statistik</button>
@@ -317,6 +320,7 @@ function show(id) {
 document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => show(b.dataset.go));
 document.querySelectorAll('[data-start]').forEach(b => b.onclick = () => start(b.dataset.start));
 document.querySelectorAll('[data-size]').forEach(b => b.onclick = () => start('frei', +b.dataset.size));
+document.querySelectorAll('[data-zeit]').forEach(b => b.onclick = () => start('zeit', +b.dataset.zeit));
 $('back').onclick = () => { persist(); stopTimer(); show('menu'); };
 $('newGame').onclick = () => {
   if (Object.keys(g.found).length && !confirm('Dieses Rätsel verwerfen und ein neues Thema starten?')) return;
@@ -399,7 +403,7 @@ function start(mode, size, fresh, avoid) {
   else if (mode === 'level') puzzle = levelPuzzle(p.current_level);
   else if (mode === 'tutorial') puzzle = tutorialPuzzle();
   else if (mode === 'frei') puzzle = saved?.puzzle ?? randomPuzzle(size, avoid);
-  else puzzle = randomPuzzle(5);
+  else puzzle = randomPuzzle(size || 5);
   g = { mode, key, puzzle, found: {}, hints: [], startedAt: Date.now(), score: 0, wordsTotal: 0, level: p.current_level, date: today() };
   if (saved) Object.assign(g, { found: saved.found, hints: saved.hints, startedAt: Date.now() - saved.elapsed });
   if (key && fresh) db.saveGame(key, null);
@@ -573,7 +577,7 @@ function solved() {
     g.wordsTotal += g.puzzle.words.length;
     g.foundTotal = (g.foundTotal ?? 0) + g.puzzle.words.length;
     g.hintsTotal = (g.hintsTotal ?? 0) + g.hints.length;
-    g.puzzle = randomPuzzle(5); g.found = {}; g.hints = []; g.left = null;
+    g.puzzle = randomPuzzle(g.puzzle.size); g.found = {}; g.hints = []; g.left = null;
     toast('Neues Gitter!');
     draw();
     return;
@@ -608,13 +612,17 @@ function solved() {
 function timeUp() {
   stopTimer();
   const found = (g.foundTotal ?? 0) + Object.keys(g.found).length;
-  record({ size: 5, words_found: found, words_total: g.wordsTotal + g.puzzle.words.length, score: g.score,
+  const n = g.puzzle.size;
+  // Rekord je Größe aus dem Spielverlauf; timed_highscore bleibt der Gesamtrekord für die Rangliste
+  const sizeBest = Math.max(0, ...db.games().filter(x => x.mode === 'zeit' && x.size === n).map(x => x.score));
+  record({ size: n, words_found: found, words_total: g.wordsTotal + g.puzzle.words.length, score: g.score,
            hints: (g.hintsTotal ?? 0) + g.hints.length, seconds: TIME_LIMIT, won: false });
   const p = db.progress();
   const best = g.score > p.timed_highscore;
   if (best) db.setProgress({ timed_highscore: g.score });
-  dialog('Zeit um! ⏱️', `<p><b style="font-size:40px">${g.score}</b> Punkte<br>${found} Wörter${best ? '<br>🎉 Neuer Rekord!' : `<br>Rekord: ${p.timed_highscore}`}</p>`,
-    [['Nochmal', () => start('zeit')], ['Menü', () => show('menu'), true]]);
+  const line = best ? '🎉 Neuer Gesamtrekord!' : g.score > sizeBest ? `🎉 Neuer Rekord für ${n}×${n}!` : `Rekord ${n}×${n}: ${sizeBest} · Gesamt: ${p.timed_highscore}`;
+  dialog('Zeit um! ⏱️', `<p><b style="font-size:40px">${g.score}</b> Punkte<br>${found} Wörter · ${n}×${n}<br>${line}</p>`,
+    [['Nochmal', () => start('zeit', n)], ['Menü', () => show('menu'), true]]);
 }
 
 // ---------- Statistik ----------
