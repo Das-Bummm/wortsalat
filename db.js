@@ -46,6 +46,9 @@ export async function signIn(name, password) {
 }
 
 export async function signOut() {
+  // Mitteilungen dieses Geräts gehören zum alten Konto: abmelden
+  const sub = await pushSubscription();
+  if (sub) { await sb.from('push_subs').delete().eq('endpoint', sub.endpoint); await sub.unsubscribe().catch(() => {}); }
   await sb.auth.signOut();
   user = null;
   profile = null;
@@ -146,3 +149,14 @@ export async function adminClearGames(id) {
 }
 
 export const adminDeleteUser = id => rows(sb.rpc('admin_delete_user', { target: id }));
+
+// ---------- Mitteilungen ----------
+export const pushSubscription = async () => {
+  try { return await (await navigator.serviceWorker?.getRegistration())?.pushManager?.getSubscription() ?? null; } catch { return null; }
+};
+export async function savePush(sub, prefs) {
+  const j = sub.toJSON();
+  await rows(sb.from('push_subs').upsert({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, prefs, user_id: user.id }));
+}
+export const pushPrefs = async endpoint => (await rows(sb.from('push_subs').select('prefs').eq('endpoint', endpoint).maybeSingle()))?.prefs ?? null;
+export const deletePush = endpoint => rows(sb.from('push_subs').delete().eq('endpoint', endpoint));

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { THEMES } from './puzzles.js';
+import { pick } from './push/rules.mjs';
 import { makePuzzle, neighbors, dailyPuzzle, levelPuzzle, tutorialPuzzle, minWords } from './game.js';
 
 const stats = {};
@@ -28,4 +29,23 @@ assert.ok(tut.words.some(w => w.word === 'KIWI'));
 for (let l = 1; l <= 80; l++) { const p = levelPuzzle(l); assert.ok(p.words.length >= minWords(p.size)); }
 for (const [size, s] of Object.entries(stats))
   console.log(`${size}×${size}: Ø ${(s.words / s.n).toFixed(1)} Wörter, Ø ${(s.shared / s.n).toFixed(1)} geteilte Felder, Ø ${(s.holes / s.n).toFixed(1)} Lücken, Ø längstes Wort ${(s.longest / s.n).toFixed(1)}`);
+
+// Mitteilungen: welche zu welcher Uhrzeit
+{
+  const at = (hour, extra = {}) => ({ date: '2026-11-19', hour, sunday: false, ...extra });
+  const t = { streak: 6, last_daily: '2026-11-18', prefs: {}, last_sent: {}, week_games: 4, week_words: 30 };
+  const kind = (row, now, last = '2026-11-18') => pick(row, now, 'Obst', last)?.[0] ?? null;
+  assert.equal(kind(t, at(7)), null);
+  assert.equal(kind(t, at(8)), 'tag');
+  assert.match(pick(t, at(8), 'Obst')[2], /Heute erreichst du 7 Tage/);
+  assert.equal(kind({ ...t, last_sent: { tag: '2026-11-19' } }, at(9)), null);
+  assert.equal(kind(t, at(19)), 'serie');
+  assert.equal(kind(t, at(22)), 'letzte');
+  assert.match(pick(t, at(23), 'Obst')[2], /Noch 1 Stunde,/);
+  assert.equal(kind({ ...t, prefs: { letzte: false } }, at(22)), null);
+  assert.equal(kind({ ...t, last_daily: '2026-11-19' }, at(19)), null); // heute schon gespielt
+  assert.equal(kind({ ...t, last_daily: '2026-11-19' }, at(18, { sunday: true })), 'woche');
+  assert.equal(kind({ ...t, last_daily: '2026-11-10' }, at(19), '2026-11-16'), 'comeback'); // 3 Tage Pause
+  assert.equal(kind({ ...t, last_daily: '2026-11-10' }, at(19), '2026-11-15'), null);
+}
 console.log('ok');

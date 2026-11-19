@@ -51,7 +51,7 @@ button { font: inherit; }
 .btn:active, .icon-btn:active, .mode:active { opacity: .8; }
 
 /* Menü */
-.logo { margin: 32px 4px 24px; }
+.logo { margin: 28px 4px 18px; }
 .logo h1 { margin: 0; font-size: 36px; font-weight: 800; color: var(--accent); }
 .logo p { margin: 4px 0 0; color: var(--muted); font-weight: 500; }
 .mode { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: 0; border-radius: 16px; padding: 14px 16px; margin-bottom: 10px; background: var(--card); color: var(--text); cursor: pointer; }
@@ -62,6 +62,34 @@ button { font: inherit; }
 .sizes button { flex: 1; border: 0; border-radius: 999px; padding: 7px 0; background: var(--accent); color: var(--accent-ink); font-weight: 700; cursor: pointer; }
 .menu-foot { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: auto; padding-top: 12px; }
 .menu-foot .btn[hidden] { display: none; }
+
+/* Serie */
+.streak { width: 100%; border: 0; border-radius: 20px; padding: 16px; margin-bottom: 14px; background: var(--card); color: var(--text); text-align: left; cursor: pointer; font: inherit; }
+.streak-top { display: flex; align-items: center; gap: 12px; }
+.flame { font-size: 44px; line-height: 1; filter: drop-shadow(0 2px 6px #ff8a0066); animation: flicker 1.8s infinite ease-in-out; }
+.flame.off { filter: grayscale(1); opacity: .45; animation: none; }
+@keyframes flicker { 50% { transform: scale(1.08) rotate(-3deg); } }
+.streak-top b { display: block; font-size: 34px; font-weight: 800; line-height: 1; color: #f08a00; }
+.streak-top .flame.off + div b { color: var(--muted); }
+.streak-top span { color: var(--muted); font-weight: 600; font-size: 14px; }
+.streak-top .best { margin-left: auto; text-align: right; font-size: 12px; }
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 14px; text-align: center; }
+.week i { font-style: normal; font-size: 11px; font-weight: 700; color: var(--muted); }
+.week em { display: grid; place-items: center; width: 30px; height: 30px; margin: 4px auto 0; border-radius: 50%; background: var(--line); font-style: normal; font-size: 14px; font-weight: 800; color: #fff; }
+.week .on em { background: #f08a00; }
+.week .today em { box-shadow: 0 0 0 2px #f08a00 inset; }
+.week .today i { color: #f08a00; }
+.streak p { margin: 12px 0 0; font-size: 14px; font-weight: 600; color: var(--muted); }
+.streak p.warn { color: #e0671b; }
+.celebrate { display: flex; flex-direction: column; align-items: center; margin: 4px 0 6px; }
+.celebrate .flame { font-size: 72px; }
+.celebrate b { font-size: 56px; font-weight: 800; color: #f08a00; line-height: 1; animation: pop .6s .2s both; }
+.celebrate span { color: var(--muted); font-weight: 700; }
+@keyframes pop { 0% { transform: scale(.3); opacity: 0; } 70% { transform: scale(1.2); } 100% { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .flame, .celebrate b { animation: none; } }
+.switch { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--tile); margin-bottom: 4px; cursor: pointer; }
+.switch div { flex: 1; font-weight: 700; } .switch small { display: block; color: var(--muted); font-weight: 500; margin-top: 2px; }
+.switch input { width: 22px; height: 22px; accent-color: var(--accent); }
 
 /* Haustiere */
 .pet { position: fixed; left: 0; top: 0; width: 64px; height: 48px; pointer-events: none; z-index: 15; will-change: transform; }
@@ -176,6 +204,11 @@ h3.sec { margin: 22px 4px 10px; font-size: 16px; }
 
 <section id="menu" class="screen active">
   <div class="logo"><h1>Wortsalat</h1><p>Finde die Wörter im Buchstabensalat</p><button data-start="tutorial">So geht's</button></div>
+  <button class="streak" data-start="tag">
+    <div class="streak-top"><span class="flame" id="flame">🔥</span><div><b id="streakNum">0</b><span>Tage Serie</span></div><span class="best" id="streakBest"></span></div>
+    <div class="week" id="week"></div>
+    <p id="streakMsg"></p>
+  </button>
   <button class="mode" data-start="tag"><span class="ico">📅</span><div><b>Tagesrätsel</b><span id="dailyInfo"></span></div></button>
   <div class="mode" style="display:block;cursor:default">
     <div style="display:flex;gap:14px;align-items:center"><span class="ico">🎲</span><div><b>Freies Spiel</b><span>Größe wählen</span></div></div>
@@ -188,6 +221,7 @@ h3.sec { margin: 22px 4px 10px; font-size: 16px; }
     <button class="btn light" data-go="account" id="accountBtn">👤 Konto</button>
     <button class="btn light" data-go="ranking">🏅 Rangliste</button>
     <button class="btn light" data-go="pets">🐾 Haustier</button>
+    <button class="btn light" data-go="notify">🔔 Mitteilungen</button>
     <button class="btn light" data-go="admin" id="adminBtn" hidden>🛠️ Admin</button>
   </div>
 </section>
@@ -228,6 +262,11 @@ h3.sec { margin: 22px 4px 10px; font-size: 16px; }
   <div class="petgrid" id="petGrid"></div>
 </section>
 
+<section id="notify" class="screen">
+  <div class="bar"><button class="icon-btn" data-go="menu" aria-label="Zurück">←</button><h2>Mitteilungen</h2><span style="width:44px"></span></div>
+  <div id="notifyBody"></div>
+</section>
+
 <section id="admin" class="screen">
   <div class="bar"><button class="icon-btn" data-go="menu" aria-label="Zurück">←</button><h2>Admin</h2><button class="icon-btn" id="adminReload" aria-label="Neu laden">↻</button></div>
   <div id="adminBody"></div>
@@ -240,6 +279,8 @@ h3.sec { margin: 22px 4px 10px; font-size: 16px; }
 import { dailyPuzzle, levelPuzzle, randomPuzzle, tutorialPuzzle, neighbors, today } from './game.js';
 import * as db from './db.js';
 import { PETS, showPet } from './pets.js';
+import { KINDS, MILESTONES } from './push/rules.mjs';
+import { VAPID_PUBLIC } from './config.js';
 
 const $ = id => document.getElementById(id);
 const TIME_LIMIT = 90;
@@ -255,6 +296,7 @@ function show(id) {
   if (id === 'ranking') renderRanking();
   if (id === 'admin') renderAdmin();
   if (id === 'pets') renderPets();
+  if (id === 'notify') renderNotify();
 }
 document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => show(b.dataset.go));
 document.querySelectorAll('[data-start]').forEach(b => b.onclick = () => start(b.dataset.start));
@@ -287,10 +329,39 @@ function streakNow(p, ref = today()) {
   return p.last_daily === ref || p.last_daily === y.toLocaleDateString('sv') ? p.daily_streak : 0;
 }
 
+const addDays = (d, n) => { const x = new Date(d + 'T12:00'); x.setDate(x.getDate() + n); return x.toLocaleDateString('sv'); };
+const nextMilestone = s => MILESTONES.find(m => m > s) ?? s + 100;
+
+// Wochenleiste Mo–So: Tage der aktuellen Serie sind orange
+function weekHtml(p = db.progress()) {
+  const t = today(), s = streakNow(p);
+  const from = s ? addDays(p.last_daily, 1 - s) : null;
+  const monday = addDays(t, -((new Date(t + 'T12:00').getDay() + 6) % 7));
+  return '<div class="week">' + ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((name, i) => {
+    const d = addDays(monday, i), on = s && d >= from && d <= p.last_daily;
+    return `<div class="${on ? 'on' : ''} ${d === t ? 'today' : ''}"><i>${name}</i><em>${on ? '✓' : ''}</em></div>`;
+  }).join('') + '</div>';
+}
+
+function renderStreak() {
+  const p = db.progress(), s = streakNow(p), done = p.last_daily === today();
+  $('flame').classList.toggle('off', !done);
+  $('streakNum').textContent = s;
+  $('streakBest').innerHTML = `Rekord<br><b style="font-size:18px;color:var(--text)">${Math.max(p.best_streak, s)}</b>`;
+  $('week').outerHTML = weekHtml(p).replace('class="week"', 'class="week" id="week"');
+  const msg = $('streakMsg'), hoursLeft = 24 - new Date().getHours();
+  msg.className = !done && s ? 'warn' : '';
+  msg.textContent = done ? `Heute geschafft! Nächstes Ziel: ${nextMilestone(s)} Tage 🏁`
+    : s ? `Noch ${hoursLeft} Std. – löse das Tagesrätsel, sonst ist deine Serie weg!`
+    : 'Löse das Tagesrätsel und starte eine neue Serie!';
+  if (done) navigator.clearAppBadge?.().catch(() => {});
+}
+
 function renderMenu() {
   const p = db.progress();
   const done = db.dailyState(today())?.done;
-  $('dailyInfo').textContent = (done ? '✓ Heute geschafft' : 'Neues Rätsel wartet') + ` · Serie ${streakNow(p)} 🔥`;
+  renderStreak();
+  $('dailyInfo').textContent = done ? '✓ Heute geschafft' : 'Neues Rätsel wartet';
   $('timedInfo').textContent = `${TIME_LIMIT} Sekunden · Rekord ${p.timed_highscore}`;
   $('levelInfo').textContent = `Weiter mit Level ${p.current_level}`;
   const u = db.getUser();
@@ -500,7 +571,13 @@ function solved() {
       const streak = streakNow(p, g.date) + 1;
       db.setProgress({ daily_streak: streak, best_streak: Math.max(p.best_streak, streak), last_daily: g.date });
     }
-    dialog('Geschafft!', `<p>Zeit ${time} · Hinweise ${g.hints.length}<br>Serie: ${db.progress().daily_streak} 🔥</p>`, [['Zum Menü', () => show('menu')]]);
+    const s = db.progress().daily_streak, big = MILESTONES.includes(s);
+    const askPush = db.getUser() && 'PushManager' in window && Notification.permission === 'default';
+    dialog(big ? `${s} Tage! 🎉` : s > 1 ? 'Serie verlängert!' : 'Serie gestartet!',
+      `<div class="celebrate"><span class="flame">🔥</span><b>${s}</b><span>${s === 1 ? 'Tag' : 'Tage'} Serie</span></div>${weekHtml()}
+       <p>${big ? `Wahnsinn – ${s} Tage am Stück!` : `Noch ${nextMilestone(s) - s} bis zum Ziel von ${nextMilestone(s)} Tagen.`}<br><small style="color:var(--muted)">Zeit ${time} · Hinweise ${g.hints.length}</small></p>`,
+      [['Weiter', () => show('menu')], ...(askPush ? [['🔔 Morgen erinnern', () => show('notify'), true]] : [])]);
+    navigator.clearAppBadge?.().catch(() => {});
   } else if (g.mode === 'level') {
     db.setProgress({ current_level: Math.max(db.progress().current_level, g.level + 1) });
     dialog(`Level ${g.level} geschafft!`, `<p>Zeit ${time} · Hinweise ${g.hints.length}</p>`,
@@ -584,9 +661,9 @@ function renderAccount() {
 }
 
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
-const needLogin = el => {
+const needLogin = (el, what = 'Die Rangliste') => {
   if (db.getUser()) return false;
-  el.innerHTML = `<div class="form"><b>Bitte anmelden</b><p class="msg">Die Rangliste gibt es nur mit Konto.</p><button class="btn" id="goLogin">Zum Konto</button></div>`;
+  el.innerHTML = `<div class="form"><b>Bitte anmelden</b><p class="msg">${what} gibt es nur mit Konto.</p><button class="btn" id="goLogin">Zum Konto</button></div>`;
   $('goLogin').onclick = () => show('account');
   return true;
 };
@@ -656,6 +733,58 @@ function editUser(u) {
   ]);
 }
 
+// ---------- Mitteilungen ----------
+const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+const urlKey = k => Uint8Array.from(atob(k.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+const allOn = () => Object.fromEntries(KINDS.map(([k]) => [k, true]));
+
+async function renderNotify() {
+  const body = $('notifyBody');
+  const box = html => body.innerHTML = `<div class="form">${html}</div>`;
+  if (needLogin(body, 'Mitteilungen')) return;
+  if (!pushSupported()) {
+    return box(isIOS && !navigator.standalone
+      ? '<b>Erst zum Home-Bildschirm hinzufügen</b><p class="msg">Auf dem iPhone gehen Mitteilungen nur in der App: In Safari auf Teilen → „Zum Home-Bildschirm“ tippen, Wortsalat von dort öffnen und hier einschalten (ab iOS 16.4).</p>'
+      : '<b>Nicht unterstützt</b><p class="msg">Dieser Browser kann keine Mitteilungen empfangen.</p>');
+  }
+  if (Notification.permission === 'denied') {
+    return box('<b>Mitteilungen blockiert</b><p class="msg">Erlaube sie in den Einstellungen deines Geräts (iPhone: Einstellungen → Mitteilungen → Wortsalat) und öffne diese Seite erneut.</p>');
+  }
+  const sub = await db.pushSubscription();
+  if (!sub) {
+    box(`<b>🔔 Verpasse keinen Tag</b><p class="msg">Wir erinnern dich ans Tagesrätsel und bevor deine Serie verfällt. Höchstens ein paar Mal am Tag, alles einzeln abschaltbar.</p>
+      <button class="btn" id="pushOn">Mitteilungen einschalten</button><p class="msg" id="pushMsg"></p>`);
+    $('pushOn').onclick = async () => {
+      $('pushMsg').textContent = 'Einen Moment…';
+      try {
+        if (await Notification.requestPermission() !== 'granted') return renderNotify();
+        const reg = await navigator.serviceWorker.ready;
+        const s = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlKey(VAPID_PUBLIC) });
+        await db.savePush(s, allOn());
+        toast('Mitteilungen an 🔔');
+        renderNotify();
+      } catch (e) {
+        $('pushMsg').className = 'msg err'; $('pushMsg').textContent = 'Hat nicht geklappt: ' + e.message;
+      }
+    };
+    return;
+  }
+  let prefs = { ...allOn(), ...(await db.pushPrefs(sub.endpoint).catch(() => null)) };
+  body.innerHTML = KINDS.map(([k, title, when]) => `<label class="switch"><div>${title}<small>${when}</small></div><input type="checkbox" data-k="${k}" ${prefs[k] ? 'checked' : ''}></label>`).join('')
+    + `<button class="btn light" id="pushOff" style="margin-top:16px;width:100%">Alle Mitteilungen ausschalten</button>`;
+  body.querySelectorAll('[data-k]').forEach(c => c.onchange = async () => {
+    prefs = { ...prefs, [c.dataset.k]: c.checked };
+    try { await db.savePush(sub, prefs); } catch (e) { toast('Nicht gespeichert'); c.checked = !c.checked; }
+  });
+  $('pushOff').onclick = async () => {
+    try { await db.deletePush(sub.endpoint); await sub.unsubscribe(); toast('Mitteilungen aus'); } catch (e) { toast('Hat nicht geklappt'); }
+    renderNotify();
+  };
+}
+// Tipp auf eine Mitteilung öffnet das Tagesrätsel
+navigator.serviceWorker?.addEventListener('message', e => { if (e.data?.start === 'tag') { if (g) persist(); start('tag'); } });
+
 // ---------- Haustiere ----------
 const SOON_EMOJI = { hund: '🐶', kuh: '🐮', hase: '🐰' };
 const myPet = () => { try { return localStorage.getItem('ws_pet') || 'none'; } catch { return 'none'; } };
@@ -675,7 +804,8 @@ showPet(myPet());
 // ---------- Start ----------
 renderMenu();
 // Beim allerersten Start einmal das Tutorial zeigen
-try { if (!localStorage.getItem('ws_tutorial')) { localStorage.setItem('ws_tutorial', '1'); start('tutorial'); } } catch {}
+if (new URLSearchParams(location.search).get('start') === 'tag') { history.replaceState(null, '', location.pathname); start('tag'); }
+else try { if (!localStorage.getItem('ws_tutorial')) { localStorage.setItem('ws_tutorial', '1'); start('tutorial'); } } catch {}
 db.init().then(renderMenu).catch(e => console.warn('Konto nicht erreichbar', e));
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
 </script>
