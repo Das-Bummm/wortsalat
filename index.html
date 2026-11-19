@@ -756,7 +756,7 @@ async function renderRanking(reload) {
   body.innerHTML = sorted.map((r, i) => {
     if (r[rankBy] !== last) { pos = i + 1; last = r[rankBy]; }
     const medal = ['🥇', '🥈', '🥉'][pos - 1] ?? pos + '.';
-    return `<div class="rank${r.id === me ? ' me' : ''}"><span class="pos">${medal}</span><span class="name">${esc(r.username)}</span><span class="val">${r[rankBy]}</span></div>`;
+    return `<div class="rank${r.id === me ? ' me' : ''}"><span class="pos">${medal}</span><span class="name">${esc(r.username)}</span><span class="val">${r[rankBy]}${rankBy === 'timed_highscore' && r.timed_size ? ` <small style="font-weight:600;opacity:.7">${r.timed_size}×${r.timed_size}</small>` : ''}</span></div>`;
   }).join('') || '<p class="msg">Noch keine Spieler.</p>';
 }
 $('rankReload').onclick = () => renderRanking(true);

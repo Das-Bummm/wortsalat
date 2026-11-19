@@ -48,3 +48,20 @@ begin
 end $$;
 revoke execute on function admin_set_password(uuid, text) from public, anon;
 grant execute on function admin_set_password(uuid, text) to authenticated;
+
+-- Rangliste: bei Zeit-Rekord die Rastergröße der besten Runde mit anzeigen (neue Spalte timed_size am Ende)
+create or replace view leaderboard as
+select p.id, p.username,
+  coalesce(pr.current_level, 1) as level,
+  case when pr.last_daily >= current_date - 1 then pr.daily_streak else 0 end as streak,
+  coalesce(pr.best_streak, 0) as best_streak,
+  coalesce(pr.timed_highscore, 0) as timed_highscore,
+  coalesce(g.games, 0)::int as games,
+  coalesce(g.words, 0)::int as words,
+  (select z.size from games z where z.user_id = p.id and z.mode = 'zeit' order by z.score desc, z.played_at limit 1) as timed_size
+from profiles p
+left join progress pr on pr.user_id = p.id
+left join (select user_id, count(*) as games, sum(words_found) as words from games group by user_id) g on g.user_id = p.id
+where not p.banned;
+revoke all on leaderboard from anon;
+grant select on leaderboard to authenticated;
