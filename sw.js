@@ -1,4 +1,4 @@
-const CACHE = 'wortsalat-v4';
+const CACHE = 'wortsalat-v5';
 const FILES = ['./', 'index.html', 'game.js', 'puzzles.js', 'db.js', 'pets.js', 'push/rules.mjs', 'config.js', 'manifest.json', 'icon-180.png', 'icon-512.png'];
 
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))));

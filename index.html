@@ -9,6 +9,17 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Wortsalat">
 <meta name="theme-color" content="#f5f5f5">
+<script>
+// Design vor dem ersten Zeichnen setzen (kein Aufblitzen): ws_theme = light | dark, fehlt = wie das Gerät
+function applyTheme() {
+  let t = null; try { t = localStorage.getItem('ws_theme'); } catch {}
+  if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+  const dark = t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  document.querySelector('meta[name=theme-color]').content = dark ? '#121212' : '#f5f5f5';
+}
+applyTheme();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap" rel="stylesheet">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -222,6 +233,7 @@ h3.sec { margin: 22px 4px 10px; font-size: 16px; }
     <button class="btn light" data-go="ranking">🏅 Rangliste</button>
     <button class="btn light" data-go="pets">🐾 Haustier</button>
     <button class="btn light" data-go="notify">🔔 Mitteilungen</button>
+    <button class="btn light" id="themeBtn">🌓 Design</button>
     <button class="btn light" data-go="admin" id="adminBtn" hidden>🛠️ Admin</button>
   </div>
 </section>
@@ -784,6 +796,18 @@ async function renderNotify() {
 }
 // Tipp auf eine Mitteilung öffnet das Tagesrätsel
 navigator.serviceWorker?.addEventListener('message', e => { if (e.data?.start === 'tag') { if (g) persist(); start('tag'); } });
+
+// ---------- Design ----------
+$('themeBtn').onclick = () => {
+  const set = t => { try { t ? localStorage.setItem('ws_theme', t) : localStorage.removeItem('ws_theme'); } catch {} applyTheme(); };
+  let cur = null; try { cur = localStorage.getItem('ws_theme'); } catch {}
+  const mark = t => (cur === t ? '✓ ' : '');
+  dialog('Design', '<p>Wie soll Wortsalat aussehen?</p>', [
+    [mark('light') + '☀️ Hell', () => set('light'), cur !== 'light'],
+    [mark('dark') + '🌙 Dunkel', () => set('dark'), cur !== 'dark'],
+    [mark(null) + '📱 Wie das Gerät', () => set(null), cur !== null],
+  ]);
+};
 
 // ---------- Haustiere ----------
 const SOON_EMOJI = { hund: '🐶', kuh: '🐮', hase: '🐰' };
