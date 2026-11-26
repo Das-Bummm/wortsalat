@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { THEMES } from './puzzles.js';
 import { pick } from './push/rules.mjs';
-import { BAD_WORDS, badUsername } from './badwords.js';
+import { BAD_WORDS, badUsername, reservedUsername } from './badwords.js';
 import { readFileSync } from 'node:fs';
 import { makePuzzle, neighbors, dailyPuzzle, levelPuzzle, tutorialPuzzle, minWords } from './game.js';
 
@@ -55,6 +55,8 @@ for (const [size, s] of Object.entries(stats))
   const sqlWords = readFileSync(new URL('./supabase-6.sql', import.meta.url), 'utf8').match(/array\[([^\]]*)\]/)[1].match(/'([^']+)'/g).map(w => w.slice(1, -1));
   assert.deepEqual(sqlWords, BAD_WORDS);
   for (const n of ['Fi_ck3r', 'HITLER88', 'sh1t_happens', 'Scheisse', 'Arschloch1', 'n4zi']) assert.ok(badUsername(n), n);
+  for (const n of ['admin', 'Admin_2', 'adm1n', 'AAdmin']) assert.ok(reservedUsername(n), n);
+  assert.ok(!reservedUsername('Adam'));
   for (const n of ['Wortfan_2026', 'admin', 'Torpedo', 'Kiwi', 'Albert', 'Carl', 'Spielerin', 'Marsch', 'Schnecke']) assert.ok(!badUsername(n), n);
 }
 console.log('ok');

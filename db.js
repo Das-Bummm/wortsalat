@@ -1,6 +1,12 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
-import { badUsername } from './badwords.js';
-export { badUsername };
+import { badUsername, reservedUsername } from './badwords.js';
+
+// Vorab-Prüfung für eine verständliche Meldung; verbindlich prüft die Datenbank (supabase-6.sql). Admins sind ausgenommen.
+function checkName(n) {
+  if (profile?.is_admin) return;
+  if (badUsername(n)) throw new Error('Dieser Benutzername ist nicht erlaubt.');
+  if (reservedUsername(n)) throw new Error('Namen mit „admin“ sind dem Admin vorbehalten.');
+}
 
 export const online = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 let sb = null;
@@ -35,10 +41,10 @@ export async function init() {
 export async function signUp(username, password) {
   username = username.trim();
   if (!USERNAME_RE.test(username)) throw new Error('Benutzername: 3–20 Zeichen, nur Buchstaben, Zahlen und _.');
-  if (badUsername(username)) throw new Error('Dieser Benutzername ist nicht erlaubt.');
+  checkName(username);
   const { data, error } = await sb.auth.signUp({ email: toEmail(username), password, options: { data: { username } } });
   if (error) throw new Error(/already registered/i.test(error.message) ? 'Dieser Benutzername ist schon vergeben.'
-    : /database error/i.test(error.message) ? 'Dieser Benutzername ist nicht erlaubt.' : error.message); // Datenbank-Filter hat abgelehnt
+    : /database error/i.test(error.message) ? 'Dieser Benutzername ist nicht erlaubt oder reserviert.' : error.message); // Datenbank-Filter hat abgelehnt
   if (!data.session) return 'Konto angelegt. Bitte jetzt anmelden.';
   await afterLogin(data.user);
 }
@@ -155,7 +161,7 @@ export async function adminClearGames(id) {
 export async function changeUsername(name) {
   name = name.trim();
   if (!USERNAME_RE.test(name)) throw new Error('Benutzername: 3–20 Zeichen, nur Buchstaben, Zahlen und _.');
-  if (badUsername(name)) throw new Error('Dieser Benutzername ist nicht erlaubt.');
+  checkName(name);
   await rows(sb.rpc('change_username', { new_name: name }));
   await sb.auth.refreshSession(); // neue Login-Adresse ins Token übernehmen
   user = (await sb.auth.getUser()).data.user ?? user;

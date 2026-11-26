@@ -12,4 +12,7 @@ export const normName = t => t.toLowerCase().replace(/_/g, '')
   .replace(/[0134578]/g, d => ({ 0: 'o', 1: 'i', 3: 'e', 4: 'a', 5: 's', 7: 't', 8: 'b' })[d])
   .replace(/(.)\1+/g, '$1');
 
+// „admin“ (auch adm1n, Admin_2 …) darf nur ein Admin heißen
+export const reservedUsername = name => normName(name).includes('admin');
+
 export const badUsername = name => { const n = normName(name); return BAD_WORDS.some(w => n.includes(normName(w))); };
