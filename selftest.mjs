@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { THEMES } from './puzzles.js';
 import { pick } from './push/rules.mjs';
+import { BAD_WORDS, badUsername } from './badwords.js';
+import { readFileSync } from 'node:fs';
 import { makePuzzle, neighbors, dailyPuzzle, levelPuzzle, tutorialPuzzle, minWords } from './game.js';
 
 const stats = {};
@@ -47,5 +49,12 @@ for (const [size, s] of Object.entries(stats))
   assert.equal(kind({ ...t, last_daily: '2026-11-19' }, at(18, { sunday: true })), 'woche');
   assert.equal(kind({ ...t, last_daily: '2026-11-10' }, at(19), '2026-11-16'), 'comeback'); // 3 Tage Pause
   assert.equal(kind({ ...t, last_daily: '2026-11-10' }, at(19), '2026-11-15'), null);
+}
+// Namensfilter: App-Liste und Datenbank-Liste gleich, Treffer und Nicht-Treffer
+{
+  const sqlWords = readFileSync(new URL('./supabase-6.sql', import.meta.url), 'utf8').match(/array\[([^\]]*)\]/)[1].match(/'([^']+)'/g).map(w => w.slice(1, -1));
+  assert.deepEqual(sqlWords, BAD_WORDS);
+  for (const n of ['Fi_ck3r', 'HITLER88', 'sh1t_happens', 'Scheisse', 'Arschloch1', 'n4zi']) assert.ok(badUsername(n), n);
+  for (const n of ['Wortfan_2026', 'admin', 'Torpedo', 'Kiwi', 'Albert', 'Carl', 'Spielerin', 'Marsch', 'Schnecke']) assert.ok(!badUsername(n), n);
 }
 console.log('ok');

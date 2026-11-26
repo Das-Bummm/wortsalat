@@ -1,4 +1,6 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+import { badUsername } from './badwords.js';
+export { badUsername };
 
 export const online = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 let sb = null;
@@ -33,8 +35,10 @@ export async function init() {
 export async function signUp(username, password) {
   username = username.trim();
   if (!USERNAME_RE.test(username)) throw new Error('Benutzername: 3–20 Zeichen, nur Buchstaben, Zahlen und _.');
+  if (badUsername(username)) throw new Error('Dieser Benutzername ist nicht erlaubt.');
   const { data, error } = await sb.auth.signUp({ email: toEmail(username), password, options: { data: { username } } });
-  if (error) throw new Error(/already registered/i.test(error.message) ? 'Dieser Benutzername ist schon vergeben.' : error.message);
+  if (error) throw new Error(/already registered/i.test(error.message) ? 'Dieser Benutzername ist schon vergeben.'
+    : /database error/i.test(error.message) ? 'Dieser Benutzername ist nicht erlaubt.' : error.message); // Datenbank-Filter hat abgelehnt
   if (!data.session) return 'Konto angelegt. Bitte jetzt anmelden.';
   await afterLogin(data.user);
 }
@@ -151,6 +155,7 @@ export async function adminClearGames(id) {
 export async function changeUsername(name) {
   name = name.trim();
   if (!USERNAME_RE.test(name)) throw new Error('Benutzername: 3–20 Zeichen, nur Buchstaben, Zahlen und _.');
+  if (badUsername(name)) throw new Error('Dieser Benutzername ist nicht erlaubt.');
   await rows(sb.rpc('change_username', { new_name: name }));
   await sb.auth.refreshSession(); // neue Login-Adresse ins Token übernehmen
   user = (await sb.auth.getUser()).data.user ?? user;

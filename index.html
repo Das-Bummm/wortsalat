@@ -816,6 +816,7 @@ function editUser(u) {
     ['Speichern', run(() => {
       const name = $('e_username').value.trim();
       if (!db.USERNAME_RE.test(name)) throw new Error('Benutzername: 3–20 Zeichen, nur Buchstaben, Zahlen und _.');
+      if (name !== u.username && db.badUsername(name)) throw new Error('Dieser Benutzername ist nicht erlaubt.');
       const n = k => Math.max(0, parseInt($('e_' + k).value, 10) || 0);
       return db.adminSaveUser(u.id,
         { username: name, is_admin: self ? true : $('e_admin').checked, banned: self ? false : $('e_banned').checked },
