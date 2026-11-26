@@ -865,8 +865,12 @@ async function renderNotify() {
     };
     return;
   }
-  let prefs = { ...allOn(), ...(await db.pushPrefs(sub.endpoint).catch(() => null)) };
-  body.innerHTML = KINDS.map(([k, title, when]) => `<label class="switch"><div>${title}<small>${when}</small></div><input type="checkbox" data-k="${k}" ${prefs[k] ? 'checked' : ''}></label>`).join('')
+  let saved = null, err = '';
+  try { saved = await db.pushPrefs(sub.endpoint); } catch (e) { err = e.message; }
+  let prefs = { ...allOn(), ...saved };
+  // Abo ist auf dem Gerät, fehlt aber in der Datenbank (Speichern schlug fehl oder nach Neuanmeldung): nachtragen
+  if (!err && !saved) { try { await db.savePush(sub, prefs); } catch (e) { err = e.message; } }
+  body.innerHTML = (err ? `<p class="msg err" style="margin:0 4px 12px">Nicht mit deinem Konto verbunden: ${esc(err)}</p>` : '') + KINDS.map(([k, title, when]) => `<label class="switch"><div>${title}<small>${when}</small></div><input type="checkbox" data-k="${k}" ${prefs[k] ? 'checked' : ''}></label>`).join('')
     + `<button class="btn light" id="pushOff" style="margin-top:16px;width:100%">Alle Mitteilungen ausschalten</button>`;
   body.querySelectorAll('[data-k]').forEach(c => c.onchange = async () => {
     prefs = { ...prefs, [c.dataset.k]: c.checked };
