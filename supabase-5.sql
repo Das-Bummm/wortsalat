@@ -65,3 +65,25 @@ left join (select user_id, count(*) as games, sum(words_found) as words from gam
 where not p.banned;
 revoke all on leaderboard from anon;
 grant select on leaderboard to authenticated;
+
+-- Sicherheitswarnung "auth_users_exposed": Admin-Übersicht als Funktion statt als View,
+-- damit keine öffentlich ansprechbare View mehr auf auth.users zeigt.
+drop view if exists admin_overview;
+create or replace function admin_overview()
+returns table (id uuid, username text, is_admin boolean, banned boolean, created_at timestamptz,
+               email text, last_sign_in_at timestamptz, current_level int, daily_streak int, best_streak int,
+               timed_highscore int, last_daily date, games int, words int)
+language sql stable security definer set search_path = public as $$
+  select p.id, p.username, p.is_admin, p.banned, p.created_at, u.email::text, u.last_sign_in_at,
+    coalesce(pr.current_level, 1), coalesce(pr.daily_streak, 0), coalesce(pr.best_streak, 0),
+    coalesce(pr.timed_highscore, 0), pr.last_daily,
+    coalesce(g.games, 0)::int, coalesce(g.words, 0)::int
+  from profiles p
+  join auth.users u on u.id = p.id
+  left join progress pr on pr.user_id = p.id
+  left join (select user_id, count(*) as games, sum(words_found) as words from games group by user_id) g on g.user_id = p.id
+  where is_admin()
+  order by p.created_at
+$$;
+revoke execute on function admin_overview() from public, anon;
+grant execute on function admin_overview() to authenticated;

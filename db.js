@@ -134,7 +134,7 @@ export const setDailyState = (date, s) => save('daily5_' + date, s);
 const rows = async q => { const { data, error } = await q; if (error) throw error; return data; };
 
 export const leaderboard = () => rows(sb.from('leaderboard').select('*'));
-export const adminOverview = () => rows(sb.from('admin_overview').select('*').order('created_at'));
+export const adminOverview = () => rows(sb.rpc('admin_overview'));
 
 export async function adminSaveUser(id, prof, prog) {
   await rows(sb.from('profiles').update(prof).eq('id', id));
